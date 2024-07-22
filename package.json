@@ -1,0 +1,19 @@
+{
+  "name": "mint-js",
+  "version": "1.0.0",
+  "description": "A light weight frontend library with fine grained reactivity",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc"
+  },
+  "keywords": [
+    "signals",
+    "dom"
+  ],
+  "author": "chaitanya.uike",
+  "license": "MIT",
+  "files": [
+    "dist"
+  ]
+}
