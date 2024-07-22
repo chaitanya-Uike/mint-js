@@ -15,7 +15,7 @@ enum CacheState {
 
 type CacheStale = CacheState.Check | CacheState.Dirty;
 
-type ComputeFn<T> = (prevVal: T) => T;
+type ComputeFn<T> = (prevVal?: T) => T;
 type Cleanup = () => void;
 
 export class Reactive<T> {
@@ -29,7 +29,7 @@ export class Reactive<T> {
 
   cleanups: Cleanup[] = [];
 
-  constructor(initValue: ComputeFn<T> | T, effect = false) {
+  constructor(initValue: (() => T) | T, effect = false) {
     if (typeof initValue === "function") {
       this.compute = initValue as ComputeFn<T>;
       this._value = undefined as any;
@@ -71,29 +71,18 @@ export class Reactive<T> {
     return this._value;
   }
 
-  set(newValue: ComputeFn<T> | T) {
+  set(newVal: ComputeFn<T> | T) {
     if (this._disposed) {
       console.warn("trying to set a disposed value");
       return;
     }
-
-    if (typeof newValue === "function") {
-      const fn = newValue as ComputeFn<T>;
-      if (fn !== this.compute) {
-        this._state = CacheState.Dirty;
-      }
-      this.compute = fn;
-    } else {
-      if (this.compute) {
-        this.removeDepObserver(0);
-        this.compute = undefined;
-        this.deps = null;
-      }
-      const value = newValue as T;
-      if (value !== this._value) {
-        this._value = value;
-        this.notifyObservers(CacheState.Dirty);
-      }
+    const nextVal =
+      typeof newVal === "function"
+        ? (newVal as (prevVal: T) => T)(this._value)
+        : newVal;
+    if (nextVal !== this._value) {
+      this._value = nextVal;
+      this.notifyObservers(CacheState.Dirty);
     }
   }
 
@@ -128,7 +117,7 @@ export class Reactive<T> {
 
     try {
       this.handleCleanup();
-      this._value = this.compute!(this._value);
+      this._value = this.compute!();
       this.updateGraph();
     } finally {
       resumeTracking(context);

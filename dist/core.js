@@ -59,29 +59,17 @@ export class Reactive {
             this.updateIfRequired();
         return this._value;
     }
-    set(newValue) {
+    set(newVal) {
         if (this._disposed) {
             console.warn("trying to set a disposed value");
             return;
         }
-        if (typeof newValue === "function") {
-            const fn = newValue;
-            if (fn !== this.compute) {
-                this._state = CacheState.Dirty;
-            }
-            this.compute = fn;
-        }
-        else {
-            if (this.compute) {
-                this.removeDepObserver(0);
-                this.compute = undefined;
-                this.deps = null;
-            }
-            const value = newValue;
-            if (value !== this._value) {
-                this._value = value;
-                this.notifyObservers(CacheState.Dirty);
-            }
+        const nextVal = typeof newVal === "function"
+            ? newVal(this._value)
+            : newVal;
+        if (nextVal !== this._value) {
+            this._value = nextVal;
+            this.notifyObservers(CacheState.Dirty);
         }
     }
     get state() {
@@ -109,7 +97,7 @@ export class Reactive {
         const oldValue = this._value;
         try {
             this.handleCleanup();
-            this._value = this.compute(this._value);
+            this._value = this.compute();
             this.updateGraph();
         }
         finally {

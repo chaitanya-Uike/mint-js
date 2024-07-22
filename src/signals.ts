@@ -10,11 +10,9 @@ export interface Signal<T> {
 
 export function signal<T>(initValue: T | (() => T)): Signal<T> {
   const node = new Reactive(initValue);
-
   const signalFunction = function (): T {
     return node.get();
   } as Signal<T>;
-
   signalFunction.set = node.set.bind(node);
   signalFunction[SIGNAL] = true;
 

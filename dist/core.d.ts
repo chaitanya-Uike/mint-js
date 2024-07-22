@@ -3,7 +3,7 @@ declare enum CacheState {
     Check = 1,
     Dirty = 2
 }
-type ComputeFn<T> = (prevVal: T) => T;
+type ComputeFn<T> = (prevVal?: T) => T;
 type Cleanup = () => void;
 export declare class Reactive<T> {
     private _value;
@@ -14,9 +14,9 @@ export declare class Reactive<T> {
     private observers;
     private _disposed;
     cleanups: Cleanup[];
-    constructor(initValue: ComputeFn<T> | T, effect?: boolean);
+    constructor(initValue: (() => T) | T, effect?: boolean);
     get(): T;
-    set(newValue: ComputeFn<T> | T): void;
+    set(newVal: ComputeFn<T> | T): void;
     get state(): CacheState;
     get disposed(): boolean;
     private updateIfRequired;
