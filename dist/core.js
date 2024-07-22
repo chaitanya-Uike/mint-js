@@ -189,6 +189,7 @@ export class Reactive {
         this.removeDepObserver(0);
         this.deps = null;
         this.handleCleanup();
+        this._disposed = true;
     }
 }
 function suspendTracking(newObserver = null) {
