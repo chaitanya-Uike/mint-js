@@ -77,6 +77,8 @@ export class Reactive<T> {
       return;
     }
 
+    console.log("Set called", newValue);
+
     if (typeof newValue === "function") {
       const fn = newValue as ComputeFn<T>;
       if (fn !== this.compute) {
@@ -214,6 +216,7 @@ export class Reactive<T> {
     this.removeDepObserver(0);
     this.deps = null;
     this.handleCleanup();
+    this._disposed = true;
   }
 }
 
