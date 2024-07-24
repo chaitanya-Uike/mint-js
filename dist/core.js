@@ -28,6 +28,7 @@ export class Reactive {
             this.effect = effect;
             if (effect) {
                 scheduleEffect(this);
+                flush();
             }
         }
         else {
@@ -189,18 +190,19 @@ function resumeTracking(context) {
         currentSourceIndex: currentSourceIndex,
     } = context);
 }
+function flush() {
+    for (let i = 0; i < effectsQueue.length; i++) {
+        const effect = effectsQueue[i];
+        if (effect.state !== CacheState.Clean)
+            effectsQueue[i].get();
+    }
+    effectsScheduled = false;
+}
 function scheduleEffect(effect) {
     effectsQueue.push(effect);
     if (!effectsScheduled) {
         effectsScheduled = true;
-        queueMicrotask(() => {
-            for (let i = 0; i < effectsQueue.length; i++) {
-                const effect = effectsQueue[i];
-                if (effect.state !== CacheState.Clean)
-                    effectsQueue[i].get();
-            }
-            effectsScheduled = false;
-        });
+        queueMicrotask(flush);
     }
 }
 export function effect(fn) {

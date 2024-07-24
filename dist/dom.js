@@ -46,60 +46,57 @@ function handleSignalChild(element, child) {
     });
 }
 function handleFunctionChild(element, child) {
-    let start = null;
-    let end = null;
+    let markers = [null, null];
     effect(() => {
         const childValue = createRoot((disposeFn) => {
             onCleanup(disposeFn);
             return child();
         });
-        [start, end] = updateChild(element, childValue, start, end);
+        markers = updateChild(element, childValue, ...markers);
     });
 }
 function updateChild(element, value, currStart, currEnd) {
-    if (currStart !== null || currEnd !== null) {
-        remove(element, currStart, currEnd);
-    }
+    remove(element, currStart, currEnd);
     return resolveChild(element, value);
 }
 function remove(element, start, end) {
-    if (end) {
-        let current = start ?? end;
-        while (current && current !== end.nextSibling) {
-            const next = current.nextSibling;
-            element.removeChild(current);
-            current = next;
-        }
+    if (!start && !end)
+        return;
+    let current = start ?? end;
+    const stopNode = end ? end.nextSibling : null;
+    while (current && current !== stopNode) {
+        const next = current.nextSibling;
+        element.removeChild(current);
+        current = next;
     }
 }
 function resolveChild(element, child) {
-    let start = null, end = null;
     if (child == null || typeof child === "boolean") {
+        return [null, null];
     }
-    else if (typeof child === "string" || typeof child === "number") {
-        end = document.createTextNode(String(child));
-        element.appendChild(end);
+    if (typeof child === "string" ||
+        typeof child === "number" ||
+        isSignal(child)) {
+        const textNode = document.createTextNode(String(isSignal(child) ? child() : child));
+        element.appendChild(textNode);
+        return [textNode, textNode];
     }
-    else if (child instanceof Node) {
-        end = child;
-        element.appendChild(end);
+    if (child instanceof Node) {
+        element.appendChild(child);
+        return [child, child];
     }
-    else if (isSignal(child)) {
-        end = document.createTextNode(String(child()));
-        element.appendChild(end);
+    if (isFunc(child)) {
+        return resolveChild(element, child());
     }
-    else if (isFunc(child))
-        [start, end] = resolveChild(element, child());
-    else if (Array.isArray(child)) {
+    if (Array.isArray(child)) {
         const fragment = document.createDocumentFragment();
         appendChildren(fragment, child);
-        end = fragment.lastChild;
-        if (fragment.firstChild !== end)
-            start = fragment.firstChild;
-        console.log(start, end);
+        const start = fragment.firstChild;
+        const end = fragment.lastChild;
         element.appendChild(fragment);
+        return [start, end];
     }
-    return [start, end];
+    throw new Error(`Unsupported child type: ${typeof child}`);
 }
 function handleProps(element, props) {
     Object.entries(props).forEach(([key, value]) => {
