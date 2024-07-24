@@ -28,7 +28,6 @@ export class Reactive {
             this.effect = effect;
             if (effect) {
                 scheduleEffect(this);
-                flush();
             }
         }
         else {
@@ -157,8 +156,9 @@ export class Reactive {
     stale(newState) {
         if (this._state === CacheState.Clean ||
             (this._state === CacheState.Check && newState === CacheState.Dirty)) {
-            if (this._state === CacheState.Clean && this.effect)
+            if (this._state === CacheState.Clean && this.effect) {
                 scheduleEffect(this);
+            }
             this._state = newState;
             this.notifyObservers(CacheState.Check);
         }
@@ -206,7 +206,8 @@ function scheduleEffect(effect) {
     }
 }
 export function effect(fn) {
-    new Reactive(fn, true);
+    const node = new Reactive(fn, true);
+    node.get(); // Execute immediately
 }
 // should only be called inside an effect
 export function onCleanup(fn) {

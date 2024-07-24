@@ -38,7 +38,6 @@ export class Reactive<T> {
 
       if (effect) {
         scheduleEffect(this);
-        flush();
       }
     } else {
       this._value = initValue as T;
@@ -170,7 +169,9 @@ export class Reactive<T> {
       this._state === CacheState.Clean ||
       (this._state === CacheState.Check && newState === CacheState.Dirty)
     ) {
-      if (this._state === CacheState.Clean && this.effect) scheduleEffect(this);
+      if (this._state === CacheState.Clean && this.effect) {
+        scheduleEffect(this);
+      }
       this._state = newState;
       this.notifyObservers(CacheState.Check);
     }
@@ -226,7 +227,8 @@ function scheduleEffect(effect: Reactive<any>) {
 }
 
 export function effect(fn: () => any) {
-  new Reactive(fn, true);
+  const node = new Reactive(fn, true);
+  node.get(); // Execute immediately
 }
 
 // should only be called inside an effect
