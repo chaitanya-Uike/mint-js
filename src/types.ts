@@ -1,25 +1,26 @@
 import { Signal } from "./signals";
 
 export type Props = Record<string, any>;
-export type PrimitiveChild = string | number | boolean;
-export type ChildFunction = () => Child | null;
 export type Child =
+  | string
+  | number
+  | boolean
   | Node
-  | PrimitiveChild
+  | Signal<any>
+  | (() => Child)
+  | Child[]
   | null
-  | undefined
-  | Signal<PrimitiveChild>
-  | ChildFunction
-  | Child[];
-export type Children = Child[];
+  | undefined;
 
 type StyleValue = string | number | Signal<any> | (() => string | number);
 export type StyleObject = Record<string, StyleValue>;
 
 export type CreateElement = (
   name: string,
-  ...args: [Props?, ...Children] | Children
+  ...args: [Props?, ...Child[]] | Child[]
 ) => HTMLElement;
+
+export type Marker = Node | null;
 
 type HTMLTagName =
   | "div"
@@ -46,7 +47,5 @@ type HTMLTagName =
   | "label";
 
 export type TagsObject = {
-  [K in HTMLTagName]: (
-    ...args: [Props?, ...Children] | Children
-  ) => HTMLElement;
+  [K in HTMLTagName]: (...args: [Props?, ...Child[]] | Child[]) => HTMLElement;
 };

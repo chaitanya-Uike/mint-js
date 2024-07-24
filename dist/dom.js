@@ -15,13 +15,10 @@ const createElement = (name, ...args) => {
 function appendChildren(element, children) {
     let start = null;
     let end = null;
-    for (let i = 0; i < children.length; i++) {
-        const [childStart, childEnd] = resolveChild(element, children[i]);
-        if (i === 0)
-            start = childStart;
-        if (i === children.length - 1)
-            end = childEnd;
-    }
+    children.forEach(resolveChild.bind(null, element));
+    end = element.lastChild;
+    if (element.firstChild !== end)
+        start = element.firstChild;
     return [start, end];
 }
 function handleSignalChild(element, child) {

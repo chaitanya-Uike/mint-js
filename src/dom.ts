@@ -2,13 +2,11 @@ import { effect, createRoot, unTrack, onCleanup } from "./core";
 import { isSignal, Signal } from "./signals";
 import type {
   Child,
-  ChildFunction,
-  Children,
   CreateElement,
-  PrimitiveChild,
   Props,
   StyleObject,
   TagsObject,
+  Marker,
 } from "./types";
 
 const getProto = Object.getPrototypeOf;
@@ -19,8 +17,8 @@ const isFunc = (value: any): value is Function => typeof value === "function";
 const createElement: CreateElement = (name, ...args) => {
   const [props, ...children] =
     args[0] && getProto(args[0]) === OBJECT_PROTO
-      ? (args as [Props, ...Children])
-      : ([{}, ...args] as [Props, ...Children]);
+      ? (args as [Props, ...Child[]])
+      : ([{}, ...args] as [Props, ...Child[]]);
 
   const element = document.createElement(name);
 
@@ -33,17 +31,15 @@ const createElement: CreateElement = (name, ...args) => {
 function appendChildren(element: Node, children: Child[]): [Marker, Marker] {
   let start: Marker = null;
   let end: Marker = null;
-  for (let i = 0; i < children.length; i++) {
-    const [childStart, childEnd] = resolveChild(element, children[i]);
-    if (i === 0) start = childStart;
-    if (i === children.length - 1) end = childEnd;
-  }
+  children.forEach(resolveChild.bind(null, element));
+  end = element.lastChild;
+  if (element.firstChild !== end) start = element.firstChild;
   return [start, end];
 }
 
 function handleSignalChild(
   element: Node,
-  child: Signal<PrimitiveChild>
+  child: Signal<any>
 ): [Marker, Marker] {
   const textNode = document.createTextNode(child().toString());
   element.appendChild(textNode);
@@ -53,11 +49,9 @@ function handleSignalChild(
   return [null, textNode];
 }
 
-type Marker = Node | null;
-
 function handleFunctionChild(
   element: Node,
-  child: ChildFunction
+  child: () => Child
 ): [Marker, Marker] {
   let markers: [Marker, Marker] = [null, null];
   effect(() => {
