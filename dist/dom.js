@@ -46,60 +46,60 @@ function handleSignalChild(element, child) {
     });
 }
 function handleFunctionChild(element, child) {
-    let currentNode = null;
-    let dispose;
+    let start = null;
+    let end = null;
     effect(() => {
         const childValue = createRoot((disposeFn) => {
-            dispose = disposeFn;
+            onCleanup(disposeFn);
             return child();
         });
-        const value = resolveChild(childValue);
-        updateChild(element, value, currentNode, (node) => {
-            currentNode = node;
-        });
-        onCleanup(dispose);
+        [start, end] = updateChild(element, childValue, start, end);
     });
 }
-function updateChild(element, value, currentNode, setCurrentNode) {
-    if (currentNode) {
-        if (value == null) {
-            element.removeChild(currentNode);
-            setCurrentNode(null);
-        }
-        else if (value instanceof Node) {
-            if (currentNode !== value) {
-                element.replaceChild(value, currentNode);
-                setCurrentNode(value);
-            }
-        }
-        else {
-            currentNode.nodeValue = value;
-        }
+function updateChild(element, value, currStart, currEnd) {
+    if (currStart !== null || currEnd !== null) {
+        remove(element, currStart, currEnd);
     }
-    else if (value != null) {
-        const newNode = value instanceof Node ? value : document.createTextNode(value);
-        element.appendChild(newNode);
-        setCurrentNode(newNode);
+    return resolveChild(element, value);
+}
+function remove(element, start, end) {
+    if (end) {
+        let current = start ?? end;
+        while (current && current !== end.nextSibling) {
+            const next = current.nextSibling;
+            element.removeChild(current);
+            current = next;
+        }
     }
 }
-function resolveChild(child) {
-    if (child == null || typeof child === "boolean")
-        return null;
-    if (typeof child === "string" || typeof child === "number")
-        return String(child);
-    if (child instanceof Node)
-        return child;
-    if (isSignal(child))
-        return child().toString();
-    if (isFunc(child))
-        return resolveChild(child());
-    if (Array.isArray(child)) {
-        //TODO will need to update this later
-        const wrapper = document.createElement("div");
-        appendChildren(wrapper, child);
-        return wrapper;
+function resolveChild(element, child) {
+    let start = null, end = null;
+    if (child == null || typeof child === "boolean") {
     }
-    return null;
+    else if (typeof child === "string" || typeof child === "number") {
+        end = document.createTextNode(String(child));
+        element.appendChild(end);
+    }
+    else if (child instanceof Node) {
+        end = child;
+        element.appendChild(end);
+    }
+    else if (isSignal(child)) {
+        end = document.createTextNode(String(child()));
+        element.appendChild(end);
+    }
+    else if (isFunc(child))
+        [start, end] = resolveChild(element, child());
+    else if (Array.isArray(child)) {
+        const fragment = document.createDocumentFragment();
+        appendChildren(fragment, child);
+        end = fragment.lastChild;
+        if (fragment.firstChild !== end)
+            start = fragment.firstChild;
+        console.log(start, end);
+        element.appendChild(fragment);
+    }
+    return [start, end];
 }
 function handleProps(element, props) {
     Object.entries(props).forEach(([key, value]) => {

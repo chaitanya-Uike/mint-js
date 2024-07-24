@@ -30,7 +30,7 @@ const createElement: CreateElement = (name, ...args) => {
   return element;
 };
 
-function appendChildren(element: HTMLElement, children: Children): void {
+function appendChildren(element: Node, children: Children): void {
   children.forEach((child) => {
     if (Array.isArray(child)) {
       appendChildren(element, child);
@@ -40,7 +40,7 @@ function appendChildren(element: HTMLElement, children: Children): void {
   });
 }
 
-function appendChild(element: HTMLElement, child: Child): void {
+function appendChild(element: Node, child: Child): void {
   if (child == null || typeof child === "boolean") return;
 
   if (typeof child === "string" || typeof child === "number") {
@@ -54,10 +54,7 @@ function appendChild(element: HTMLElement, child: Child): void {
   }
 }
 
-function handleSignalChild(
-  element: HTMLElement,
-  child: Signal<PrimitiveChild>
-): void {
+function handleSignalChild(element: Node, child: Signal<PrimitiveChild>): void {
   const textNode = document.createTextNode(child().toString());
   element.appendChild(textNode);
   effect(() => {
@@ -65,62 +62,78 @@ function handleSignalChild(
   });
 }
 
-function handleFunctionChild(element: HTMLElement, child: ChildFunction): void {
-  let currentNode: Node | null = null;
-  let dispose: () => void;
+type Marker = Node | null;
+
+function handleFunctionChild(element: Node, child: ChildFunction): void {
+  let markers: [Marker, Marker] = [null, null];
   effect(() => {
     const childValue = createRoot((disposeFn) => {
-      dispose = disposeFn;
+      onCleanup(disposeFn);
       return child();
     });
-    const value = resolveChild(childValue);
-    updateChild(element, value, currentNode, (node) => {
-      currentNode = node;
-    });
-    onCleanup(dispose);
+    markers = updateChild(element, childValue, ...markers);
   });
 }
 
 function updateChild(
-  element: HTMLElement,
-  value: string | Node | null,
-  currentNode: Node | null,
-  setCurrentNode: (node: Node | null) => void
-): void {
-  if (currentNode) {
-    if (value == null) {
-      element.removeChild(currentNode);
-      setCurrentNode(null);
-    } else if (value instanceof Node) {
-      if (currentNode !== value) {
-        element.replaceChild(value, currentNode);
-        setCurrentNode(value);
-      }
-    } else {
-      currentNode.nodeValue = value;
-    }
-  } else if (value != null) {
-    const newNode =
-      value instanceof Node ? value : document.createTextNode(value);
-    element.appendChild(newNode);
-    setCurrentNode(newNode);
+  element: Node,
+  value: Child,
+  currStart: Marker,
+  currEnd: Marker
+): [Marker, Marker] {
+  remove(element, currStart, currEnd);
+  return resolveChild(element, value);
+}
+
+function remove(element: Node, start: Marker, end: Marker): void {
+  if (!start && !end) return;
+
+  let current: Node | null = start ?? end;
+  const stopNode = end ? end.nextSibling : null;
+
+  while (current && current !== stopNode) {
+    const next: Node | null = current.nextSibling;
+    element.removeChild(current);
+    current = next;
   }
 }
 
-function resolveChild(child: Child): string | Node | null {
-  if (child == null || typeof child === "boolean") return null;
-  if (typeof child === "string" || typeof child === "number")
-    return String(child);
-  if (child instanceof Node) return child;
-  if (isSignal(child)) return child().toString();
-  if (isFunc(child)) return resolveChild(child());
-  if (Array.isArray(child)) {
-    //TODO will need to update this later
-    const wrapper = document.createElement("div");
-    appendChildren(wrapper, child);
-    return wrapper;
+function resolveChild(element: Node, child: Child): [Marker, Marker] {
+  if (child == null || typeof child === "boolean") {
+    return [null, null];
   }
-  return null;
+
+  if (
+    typeof child === "string" ||
+    typeof child === "number" ||
+    isSignal(child)
+  ) {
+    const textNode = document.createTextNode(
+      String(isSignal(child) ? child() : child)
+    );
+    element.appendChild(textNode);
+    return [textNode, textNode];
+  }
+
+  if (child instanceof Node) {
+    element.appendChild(child);
+    return [child, child];
+  }
+
+  if (isFunc(child)) {
+    return resolveChild(element, child());
+  }
+
+  if (Array.isArray(child)) {
+    const fragment = document.createDocumentFragment();
+    appendChildren(fragment, child);
+    const start = fragment.firstChild;
+    const end = fragment.lastChild;
+    element.appendChild(fragment);
+    return [start, end];
+  }
+
+  throw new Error(`Unsupported child type: ${typeof child}`);
 }
 
 function handleProps(element: HTMLElement, props: Props): void {
