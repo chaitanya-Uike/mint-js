@@ -30,41 +30,35 @@ const createElement: CreateElement = (name, ...args) => {
   return element;
 };
 
-function appendChildren(element: Node, children: Children): void {
-  children.forEach((child) => {
-    if (Array.isArray(child)) {
-      appendChildren(element, child);
-    } else {
-      appendChild(element, child);
-    }
-  });
-}
-
-function appendChild(element: Node, child: Child): void {
-  if (child == null || typeof child === "boolean") return;
-
-  if (typeof child === "string" || typeof child === "number") {
-    element.appendChild(document.createTextNode(child.toString()));
-  } else if (child instanceof Node) {
-    element.appendChild(child);
-  } else if (isSignal(child)) {
-    handleSignalChild(element, child);
-  } else if (isFunc(child)) {
-    handleFunctionChild(element, child);
+function appendChildren(element: Node, children: Child[]): [Marker, Marker] {
+  let start: Marker = null;
+  let end: Marker = null;
+  for (let i = 0; i < children.length; i++) {
+    const [childStart, childEnd] = resolveChild(element, children[i]);
+    if (i === 0) start = childStart;
+    if (i === children.length - 1) end = childEnd;
   }
+  return [start, end];
 }
 
-function handleSignalChild(element: Node, child: Signal<PrimitiveChild>): void {
+function handleSignalChild(
+  element: Node,
+  child: Signal<PrimitiveChild>
+): [Marker, Marker] {
   const textNode = document.createTextNode(child().toString());
   element.appendChild(textNode);
   effect(() => {
     textNode.nodeValue = child().toString();
   });
+  return [null, textNode];
 }
 
 type Marker = Node | null;
 
-function handleFunctionChild(element: Node, child: ChildFunction): void {
+function handleFunctionChild(
+  element: Node,
+  child: ChildFunction
+): [Marker, Marker] {
   let markers: [Marker, Marker] = [null, null];
   effect(() => {
     const childValue = createRoot((disposeFn) => {
@@ -73,6 +67,7 @@ function handleFunctionChild(element: Node, child: ChildFunction): void {
     });
     markers = updateChild(element, childValue, ...markers);
   });
+  return markers;
 }
 
 function updateChild(
@@ -88,12 +83,13 @@ function updateChild(
 function remove(element: Node, start: Marker, end: Marker): void {
   if (!start && !end) return;
 
+  const parent = end?.parentNode ?? element;
   let current: Node | null = start ?? end;
   const stopNode = end ? end.nextSibling : null;
 
   while (current && current !== stopNode) {
     const next: Node | null = current.nextSibling;
-    element.removeChild(current);
+    parent.removeChild(current);
     current = next;
   }
 }
@@ -103,14 +99,8 @@ function resolveChild(element: Node, child: Child): [Marker, Marker] {
     return [null, null];
   }
 
-  if (
-    typeof child === "string" ||
-    typeof child === "number" ||
-    isSignal(child)
-  ) {
-    const textNode = document.createTextNode(
-      String(isSignal(child) ? child() : child)
-    );
+  if (typeof child === "string" || typeof child === "number") {
+    const textNode = document.createTextNode(String(child));
     element.appendChild(textNode);
     return [textNode, textNode];
   }
@@ -120,8 +110,12 @@ function resolveChild(element: Node, child: Child): [Marker, Marker] {
     return [child, child];
   }
 
+  if (isSignal(child)) {
+    return handleSignalChild(element, child);
+  }
+
   if (isFunc(child)) {
-    return resolveChild(element, child());
+    return handleFunctionChild(element, child);
   }
 
   if (Array.isArray(child)) {

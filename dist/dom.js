@@ -13,30 +13,16 @@ const createElement = (name, ...args) => {
     return element;
 };
 function appendChildren(element, children) {
-    children.forEach((child) => {
-        if (Array.isArray(child)) {
-            appendChildren(element, child);
-        }
-        else {
-            appendChild(element, child);
-        }
-    });
-}
-function appendChild(element, child) {
-    if (child == null || typeof child === "boolean")
-        return;
-    if (typeof child === "string" || typeof child === "number") {
-        element.appendChild(document.createTextNode(child.toString()));
+    let start = null;
+    let end = null;
+    for (let i = 0; i < children.length; i++) {
+        const [childStart, childEnd] = resolveChild(element, children[i]);
+        if (i === 0)
+            start = childStart;
+        if (i === children.length - 1)
+            end = childEnd;
     }
-    else if (child instanceof Node) {
-        element.appendChild(child);
-    }
-    else if (isSignal(child)) {
-        handleSignalChild(element, child);
-    }
-    else if (isFunc(child)) {
-        handleFunctionChild(element, child);
-    }
+    return [start, end];
 }
 function handleSignalChild(element, child) {
     const textNode = document.createTextNode(child().toString());
@@ -44,6 +30,7 @@ function handleSignalChild(element, child) {
     effect(() => {
         textNode.nodeValue = child().toString();
     });
+    return [null, textNode];
 }
 function handleFunctionChild(element, child) {
     let markers = [null, null];
@@ -54,6 +41,7 @@ function handleFunctionChild(element, child) {
         });
         markers = updateChild(element, childValue, ...markers);
     });
+    return markers;
 }
 function updateChild(element, value, currStart, currEnd) {
     remove(element, currStart, currEnd);
@@ -62,11 +50,12 @@ function updateChild(element, value, currStart, currEnd) {
 function remove(element, start, end) {
     if (!start && !end)
         return;
+    const parent = end?.parentNode ?? element;
     let current = start ?? end;
     const stopNode = end ? end.nextSibling : null;
     while (current && current !== stopNode) {
         const next = current.nextSibling;
-        element.removeChild(current);
+        parent.removeChild(current);
         current = next;
     }
 }
@@ -74,10 +63,8 @@ function resolveChild(element, child) {
     if (child == null || typeof child === "boolean") {
         return [null, null];
     }
-    if (typeof child === "string" ||
-        typeof child === "number" ||
-        isSignal(child)) {
-        const textNode = document.createTextNode(String(isSignal(child) ? child() : child));
+    if (typeof child === "string" || typeof child === "number") {
+        const textNode = document.createTextNode(String(child));
         element.appendChild(textNode);
         return [textNode, textNode];
     }
@@ -85,8 +72,11 @@ function resolveChild(element, child) {
         element.appendChild(child);
         return [child, child];
     }
+    if (isSignal(child)) {
+        return handleSignalChild(element, child);
+    }
     if (isFunc(child)) {
-        return resolveChild(element, child());
+        return handleFunctionChild(element, child);
     }
     if (Array.isArray(child)) {
         const fragment = document.createDocumentFragment();
