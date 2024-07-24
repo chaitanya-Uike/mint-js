@@ -1,101 +1,16 @@
-import { effect, createRoot, unTrack, onCleanup } from "./core";
+import { effect, onCleanup } from "./core";
 import { isSignal } from "./signals";
 const getProto = Object.getPrototypeOf;
 const OBJECT_PROTO = getProto({});
 const isFunc = (value) => typeof value === "function";
 const createElement = (name, ...args) => {
-    const [props, ...children] = args[0] && getProto(args[0]) === OBJECT_PROTO
-        ? args
-        : [{}, ...args];
+    const [props, ...children] = (args[0] && getProto(args[0]) === OBJECT_PROTO ? args : [{}, ...args]);
     const element = document.createElement(name);
     handleProps(element, props);
     appendChildren(element, children);
     return element;
 };
-function appendChildren(element, children) {
-    children.forEach((child) => {
-        if (Array.isArray(child)) {
-            appendChildren(element, child);
-        }
-        else {
-            appendChild(element, child);
-        }
-    });
-}
-function appendChild(element, child) {
-    if (child == null || typeof child === "boolean")
-        return;
-    if (typeof child === "string" || typeof child === "number") {
-        element.appendChild(document.createTextNode(child.toString()));
-    }
-    else if (child instanceof Node) {
-        element.appendChild(child);
-    }
-    else if (isSignal(child)) {
-        handleSignalChild(element, child);
-    }
-    else if (isFunc(child)) {
-        handleFunctionChild(element, child);
-    }
-}
-function handleSignalChild(element, child) {
-    const textNode = document.createTextNode(child().toString());
-    element.appendChild(textNode);
-    effect(() => {
-        textNode.nodeValue = child().toString();
-    });
-}
-function handleFunctionChild(element, child) {
-    let currentNode = null;
-    effect(() => {
-        const [childValue, dispose] = createRoot(child);
-        const value = resolveChild(childValue);
-        updateChild(element, value, currentNode, (node) => {
-            currentNode = node;
-        });
-        onCleanup(dispose);
-    });
-}
-function updateChild(element, value, currentNode, setCurrentNode) {
-    if (currentNode) {
-        if (value == null) {
-            element.removeChild(currentNode);
-            setCurrentNode(null);
-        }
-        else if (value instanceof Node) {
-            if (currentNode !== value) {
-                element.replaceChild(value, currentNode);
-                setCurrentNode(value);
-            }
-        }
-        else {
-            currentNode.nodeValue = value;
-        }
-    }
-    else if (value != null) {
-        const newNode = value instanceof Node ? value : document.createTextNode(value);
-        element.appendChild(newNode);
-        setCurrentNode(newNode);
-    }
-}
-function resolveChild(child) {
-    if (child == null || typeof child === "boolean")
-        return null;
-    if (typeof child === "string" || typeof child === "number")
-        return child.toString();
-    if (child instanceof Node)
-        return child;
-    if (isSignal(child))
-        return child().toString();
-    if (isFunc(child))
-        return resolveChild(child());
-    if (Array.isArray(child)) {
-        const fragment = document.createDocumentFragment();
-        appendChildren(fragment, child);
-        return fragment;
-    }
-    return null;
-}
+function appendChildren(element, children) { }
 function handleProps(element, props) {
     Object.entries(props).forEach(([key, value]) => {
         if (key.startsWith("on") && isFunc(value)) {
@@ -158,10 +73,3 @@ export const tags = new Proxy(createElement, {
         return target.bind(null, name);
     },
 });
-export function Component(fn) {
-    return (...args) => {
-        return unTrack(() => {
-            return fn(...args);
-        });
-    };
-}

@@ -1,4 +1,4 @@
-import { Reactive, onCleanup } from "./core";
+import { Reactive, effect, onCleanup } from "./core";
 const SIGNAL = Symbol("signal");
 export function signal(initValue) {
     const node = new Reactive(initValue);
@@ -7,18 +7,19 @@ export function signal(initValue) {
     };
     signalFunction.set = node.set.bind(node);
     signalFunction[SIGNAL] = true;
+    signalFunction.node = node;
     return signalFunction;
 }
 export function isSignal(value) {
     return typeof value === "function" && value[SIGNAL] === true;
 }
 export function createEffect(fn) {
-    new Reactive(() => {
+    effect(() => {
         const cleanup = fn();
         if (typeof cleanup === "function") {
             onCleanup(cleanup);
         }
-    }, true);
+    });
 }
 export function createMemo(fn) {
     const node = new Reactive(fn);

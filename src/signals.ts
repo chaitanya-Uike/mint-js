@@ -1,11 +1,12 @@
-import { Reactive, onCleanup } from "./core";
+import { Reactive, effect, onCleanup } from "./core";
 
 const SIGNAL = Symbol("signal");
 
-export interface Signal<T> {
+export interface Signal<T = any> {
   (): T;
   set(value: T | ((prevVal: T) => void)): void;
   [SIGNAL]: boolean;
+  node: Reactive<T>;
 }
 
 export function signal<T>(initValue: T | (() => T)): Signal<T> {
@@ -15,6 +16,7 @@ export function signal<T>(initValue: T | (() => T)): Signal<T> {
   } as Signal<T>;
   signalFunction.set = node.set.bind(node);
   signalFunction[SIGNAL] = true;
+  signalFunction.node = node;
 
   return signalFunction;
 }
@@ -24,12 +26,12 @@ export function isSignal(value: any): value is Signal<any> {
 }
 
 export function createEffect(fn: () => any | (() => void)): void {
-  new Reactive(() => {
+  effect(() => {
     const cleanup = fn();
     if (typeof cleanup === "function") {
       onCleanup(cleanup);
     }
-  }, true);
+  });
 }
 
 export function createMemo<T>(fn: () => T): () => T {

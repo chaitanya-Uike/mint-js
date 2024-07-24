@@ -1,58 +1,47 @@
 let currentObserver = null;
-let newDeps = null;
-let currentDepIndex = 0;
+let newSources = null;
+let currentSourceIndex = 0;
 let effectsQueue = [];
 let effectsScheduled = false;
-let childNodes = null;
+let children = null;
 var CacheState;
 (function (CacheState) {
     CacheState[CacheState["Clean"] = 0] = "Clean";
     CacheState[CacheState["Check"] = 1] = "Check";
     CacheState[CacheState["Dirty"] = 2] = "Dirty";
+    CacheState[CacheState["Disposed"] = 3] = "Disposed";
 })(CacheState || (CacheState = {}));
+const isFunc = (val) => typeof val === "function";
 export class Reactive {
     _value;
     compute;
     _state;
     effect;
-    deps = null;
+    sources = null;
     observers = null;
-    _disposed = false;
-    cleanups = [];
+    cleanups = null;
     constructor(initValue, effect = false) {
-        if (typeof initValue === "function") {
-            this.compute = initValue;
-            this._value = undefined;
-            this._state = CacheState.Dirty;
-            this.effect = effect;
-            if (effect) {
-                scheduleEffect(this);
-            }
-        }
-        else {
-            this._value = initValue;
-            this._state = CacheState.Clean;
-            this.effect = false;
-        }
-        if (childNodes)
-            childNodes.add(this);
+        this.compute = isFunc(initValue) ? initValue : undefined;
+        this._state = this.compute ? CacheState.Dirty : CacheState.Clean;
+        this._value = this.compute ? undefined : initValue;
+        this.effect = effect;
+        if (children)
+            children.push(this);
     }
     get() {
-        if (this._disposed) {
-            console.warn("trying to access disposed value");
+        if (this.state === CacheState.Disposed)
             return this._value;
-        }
         if (currentObserver) {
-            if (!newDeps &&
-                currentObserver.deps &&
-                currentObserver.deps[currentDepIndex] === this) {
-                currentDepIndex++;
+            if (!newSources &&
+                currentObserver.sources &&
+                currentObserver.sources[currentSourceIndex] === this) {
+                currentSourceIndex++;
             }
             else {
-                if (!newDeps)
-                    newDeps = [this];
+                if (!newSources)
+                    newSources = [this];
                 else
-                    newDeps.push(this);
+                    newSources.push(this);
             }
         }
         if (this.compute)
@@ -60,13 +49,7 @@ export class Reactive {
         return this._value;
     }
     set(newVal) {
-        if (this._disposed) {
-            console.warn("trying to set a disposed value");
-            return;
-        }
-        const nextVal = typeof newVal === "function"
-            ? newVal(this._value)
-            : newVal;
+        const nextVal = isFunc(newVal) ? newVal(this._value) : newVal;
         if (nextVal !== this._value) {
             this._value = nextVal;
             this.notifyObservers(CacheState.Dirty);
@@ -75,21 +58,17 @@ export class Reactive {
     get state() {
         return this._state;
     }
-    get disposed() {
-        return this._disposed;
-    }
     updateIfRequired() {
-        if (this._state === CacheState.Check && this.deps) {
-            for (const dep of this.deps) {
-                dep.updateIfRequired();
+        if (this._state === CacheState.Check && this.sources) {
+            for (const source of this.sources) {
+                source.updateIfRequired();
                 if (this._state === CacheState.Dirty) {
                     break;
                 }
             }
         }
-        if (this._state === CacheState.Dirty) {
+        if (this._state === CacheState.Dirty)
             this.update();
-        }
         this._state = CacheState.Clean;
     }
     update() {
@@ -112,30 +91,30 @@ export class Reactive {
     }
     updateGraph() {
         // if new dependencies were discovered in current run
-        if (newDeps) {
-            this.removeDepObserver(currentDepIndex);
-            if (this.deps && currentDepIndex > 0) {
-                this.deps.length = currentDepIndex + newDeps.length;
-                for (let i = 0; i < newDeps.length; i++) {
-                    this.deps[currentDepIndex + i] = newDeps[i];
+        if (newSources) {
+            this.removeSourceObserver(currentSourceIndex);
+            if (this.sources && currentSourceIndex > 0) {
+                this.sources.length = currentSourceIndex + newSources.length;
+                for (let i = 0; i < newSources.length; i++) {
+                    this.sources[currentSourceIndex + i] = newSources[i];
                 }
             }
             else {
-                this.deps = newDeps;
+                this.sources = newSources;
             }
             // add current reactiveNode as an observer of the new deps
-            for (let i = currentDepIndex; i < this.deps.length; i++) {
-                const dep = this.deps[i];
-                if (!dep.observers)
-                    dep.observers = [this];
+            for (let i = currentSourceIndex; i < this.sources.length; i++) {
+                const source = this.sources[i];
+                if (!source.observers)
+                    source.observers = [this];
                 else
-                    dep.observers.push(this);
+                    source.observers.push(this);
             }
         }
         // some old dependencies were not captured in the current run, remove them
-        else if (this.deps && currentDepIndex < this.deps.length) {
-            this.removeDepObserver(currentDepIndex);
-            this.deps.length = currentDepIndex;
+        else if (this.sources && currentSourceIndex < this.sources.length) {
+            this.removeSourceObserver(currentSourceIndex);
+            this.sources.length = currentSourceIndex;
         }
     }
     notifyObservers(state) {
@@ -144,19 +123,22 @@ export class Reactive {
         }
     }
     handleCleanup() {
-        if (this.cleanups.length) {
-            this.cleanups.forEach((c) => c());
-            this.cleanups = [];
+        if (this.cleanups) {
+            for (let i = this.cleanups.length - 1; i >= 0; i--) {
+                this.cleanups[i]();
+            }
+            this.cleanups = null;
         }
     }
-    removeDepObserver(index) {
-        if (this.deps) {
-            for (let i = index; i < this.deps.length; i++) {
-                const dep = this.deps[i];
-                if (dep.observers) {
-                    const swap = dep.observers.findIndex((o) => o === this);
-                    dep.observers[swap] = dep.observers[dep.observers.length - 1];
-                    dep.observers.pop();
+    removeSourceObserver(index) {
+        if (this.sources) {
+            for (let i = index; i < this.sources.length; i++) {
+                const source = this.sources[i];
+                if (source.observers) {
+                    const swap = source.observers.findIndex((o) => o === this);
+                    source.observers[swap] =
+                        source.observers[source.observers.length - 1];
+                    source.observers.pop();
                 }
             }
         }
@@ -171,31 +153,30 @@ export class Reactive {
         }
     }
     dispose() {
-        this._value = undefined;
-        this.compute = undefined;
-        this._state = CacheState.Clean;
-        this.removeDepObserver(0);
-        this.deps = null;
+        this._state = CacheState.Disposed;
         this.handleCleanup();
-        this._disposed = true;
+        if (this.sources)
+            this.removeSourceObserver(0);
+        this.sources = null;
+        this.observers = null;
     }
 }
 function suspendTracking(newObserver = null) {
     const currContext = {
         currentObserver,
-        newSources: newDeps,
-        currentSourceIndex: currentDepIndex,
+        newSources: newSources,
+        currentSourceIndex: currentSourceIndex,
     };
     currentObserver = newObserver;
-    newDeps = null;
-    currentDepIndex = 0;
+    newSources = null;
+    currentSourceIndex = 0;
     return currContext;
 }
 function resumeTracking(context) {
     ({
         currentObserver,
-        newSources: newDeps,
-        currentSourceIndex: currentDepIndex,
+        newSources: newSources,
+        currentSourceIndex: currentSourceIndex,
     } = context);
 }
 function scheduleEffect(effect) {
@@ -205,7 +186,7 @@ function scheduleEffect(effect) {
         queueMicrotask(() => {
             for (let i = 0; i < effectsQueue.length; i++) {
                 const effect = effectsQueue[i];
-                if (effect.state !== CacheState.Clean && !effect.disposed)
+                if (effect.state !== CacheState.Clean)
                     effectsQueue[i].get();
             }
             effectsScheduled = false;
@@ -215,9 +196,13 @@ function scheduleEffect(effect) {
 export function effect(fn) {
     new Reactive(fn, true);
 }
+// should only be called inside an effect
 export function onCleanup(fn) {
     if (currentObserver) {
-        currentObserver.cleanups.push(fn);
+        if (!currentObserver.cleanups)
+            currentObserver.cleanups = [fn];
+        else
+            currentObserver.cleanups.push(fn);
     }
 }
 export function unTrack(fn) {
@@ -230,19 +215,17 @@ export function unTrack(fn) {
     }
 }
 export function createRoot(fn) {
-    const prevChildNodes = childNodes;
-    childNodes = new Set();
-    try {
-        const val = fn();
-        const capturedChildNodes = [...childNodes];
-        const dispose = () => {
-            for (const node of capturedChildNodes) {
-                node.dispose();
-            }
-        };
-        return [val, dispose];
-    }
-    finally {
-        childNodes = prevChildNodes;
-    }
+    const prevChildNodes = children;
+    children = [];
+    const dispose = () => {
+        if (!children)
+            return;
+        for (let i = children.length - 1; i >= 0; i--) {
+            children[i].dispose();
+        }
+        children = null;
+    };
+    const result = unTrack(fn.bind(null, dispose));
+    children = prevChildNodes;
+    return result;
 }

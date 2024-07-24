@@ -1,16 +1,15 @@
 let currentObserver: Reactive<any> | null = null;
-let newDeps: Reactive<any>[] | null = null;
-let currentDepIndex = 0;
-
+let newSources: Reactive<any>[] | null = null;
+let currentSourceIndex = 0;
 let effectsQueue: Reactive<any>[] = [];
 let effectsScheduled = false;
-
-let childNodes: Set<Reactive<any>> | null = null;
+let children: Reactive<any>[] | null = null;
 
 enum CacheState {
   Clean,
   Check,
   Dirty,
+  Disposed,
 }
 
 type CacheStale = CacheState.Check | CacheState.Dirty;
@@ -18,68 +17,46 @@ type CacheStale = CacheState.Check | CacheState.Dirty;
 type ComputeFn<T> = (prevVal?: T) => T;
 type Cleanup = () => void;
 
+const isFunc = (val: any): val is Function => typeof val === "function";
+
 export class Reactive<T> {
   private _value: T;
   private compute?: ComputeFn<T>;
   private _state: CacheState;
   private effect: boolean;
-  private deps: Reactive<any>[] | null = null;
-  private observers: Reactive<any>[] | null = null;
-  private _disposed = false;
+  sources: Reactive<any>[] | null = null;
+  observers: Reactive<any>[] | null = null;
 
-  cleanups: Cleanup[] = [];
+  cleanups: Cleanup[] | null = null;
 
   constructor(initValue: (() => T) | T, effect = false) {
-    if (typeof initValue === "function") {
-      this.compute = initValue as ComputeFn<T>;
-      this._value = undefined as any;
-      this._state = CacheState.Dirty;
-      this.effect = effect;
-
-      if (effect) {
-        scheduleEffect(this);
-      }
-    } else {
-      this._value = initValue as T;
-      this._state = CacheState.Clean;
-      this.effect = false;
-    }
-    if (childNodes) childNodes.add(this);
+    this.compute = isFunc(initValue) ? initValue : undefined;
+    this._state = this.compute ? CacheState.Dirty : CacheState.Clean;
+    this._value = this.compute ? this.get() : (initValue as T);
+    this.effect = effect;
+    if (children) children.push(this);
   }
 
   get(): T {
-    if (this._disposed) {
-      console.warn("trying to access disposed value");
-      return this._value;
-    }
-
+    if (this.state === CacheState.Disposed) return this._value;
     if (currentObserver) {
       if (
-        !newDeps &&
-        currentObserver.deps &&
-        currentObserver.deps[currentDepIndex] === this
+        !newSources &&
+        currentObserver.sources &&
+        currentObserver.sources[currentSourceIndex] === this
       ) {
-        currentDepIndex++;
+        currentSourceIndex++;
       } else {
-        if (!newDeps) newDeps = [this];
-        else newDeps.push(this);
+        if (!newSources) newSources = [this];
+        else newSources.push(this);
       }
     }
-
     if (this.compute) this.updateIfRequired();
-
     return this._value;
   }
 
   set(newVal: ComputeFn<T> | T) {
-    if (this._disposed) {
-      console.warn("trying to set a disposed value");
-      return;
-    }
-    const nextVal =
-      typeof newVal === "function"
-        ? (newVal as (prevVal: T) => T)(this._value)
-        : newVal;
+    const nextVal = isFunc(newVal) ? newVal(this._value) : newVal;
     if (nextVal !== this._value) {
       this._value = nextVal;
       this.notifyObservers(CacheState.Dirty);
@@ -90,31 +67,22 @@ export class Reactive<T> {
     return this._state;
   }
 
-  get disposed() {
-    return this._disposed;
-  }
-
   private updateIfRequired() {
-    if (this._state === CacheState.Check && this.deps) {
-      for (const dep of this.deps) {
-        dep.updateIfRequired();
+    if (this._state === CacheState.Check && this.sources) {
+      for (const source of this.sources) {
+        source.updateIfRequired();
         if ((this._state as CacheState) === CacheState.Dirty) {
           break;
         }
       }
     }
-
-    if (this._state === CacheState.Dirty) {
-      this.update();
-    }
-
+    if (this._state === CacheState.Dirty) this.update();
     this._state = CacheState.Clean;
   }
 
   private update() {
     const context = suspendTracking(this);
     const oldValue = this._value;
-
     try {
       this.handleCleanup();
       this._value = this.compute!();
@@ -122,40 +90,38 @@ export class Reactive<T> {
     } finally {
       resumeTracking(context);
     }
-
     if (oldValue !== this._value && this.observers) {
       for (const observer of this.observers) {
         observer._state = CacheState.Dirty;
       }
     }
-
     this._state = CacheState.Clean;
   }
 
   private updateGraph() {
     // if new dependencies were discovered in current run
-    if (newDeps) {
-      this.removeDepObserver(currentDepIndex);
-      if (this.deps && currentDepIndex > 0) {
-        this.deps.length = currentDepIndex + newDeps.length;
-        for (let i = 0; i < newDeps.length; i++) {
-          this.deps[currentDepIndex + i] = newDeps[i];
+    if (newSources) {
+      this.removeSourceObserver(currentSourceIndex);
+      if (this.sources && currentSourceIndex > 0) {
+        this.sources.length = currentSourceIndex + newSources.length;
+        for (let i = 0; i < newSources.length; i++) {
+          this.sources[currentSourceIndex + i] = newSources[i];
         }
       } else {
-        this.deps = newDeps;
+        this.sources = newSources;
       }
 
       // add current reactiveNode as an observer of the new deps
-      for (let i = currentDepIndex; i < this.deps.length; i++) {
-        const dep: Reactive<any> = this.deps[i];
-        if (!dep.observers) dep.observers = [this];
-        else dep.observers.push(this);
+      for (let i = currentSourceIndex; i < this.sources.length; i++) {
+        const source: Reactive<any> = this.sources[i];
+        if (!source.observers) source.observers = [this];
+        else source.observers.push(this);
       }
     }
     // some old dependencies were not captured in the current run, remove them
-    else if (this.deps && currentDepIndex < this.deps.length) {
-      this.removeDepObserver(currentDepIndex);
-      this.deps.length = currentDepIndex;
+    else if (this.sources && currentSourceIndex < this.sources.length) {
+      this.removeSourceObserver(currentSourceIndex);
+      this.sources.length = currentSourceIndex;
     }
   }
 
@@ -166,20 +132,23 @@ export class Reactive<T> {
   }
 
   handleCleanup() {
-    if (this.cleanups.length) {
-      this.cleanups.forEach((c) => c());
-      this.cleanups = [];
+    if (this.cleanups) {
+      for (let i = this.cleanups.length - 1; i >= 0; i--) {
+        this.cleanups[i]();
+      }
+      this.cleanups = null;
     }
   }
 
-  removeDepObserver(index: number) {
-    if (this.deps) {
-      for (let i = index; i < this.deps.length; i++) {
-        const dep: Reactive<any> = this.deps[i];
-        if (dep.observers) {
-          const swap = dep.observers.findIndex((o) => o === this);
-          dep.observers[swap] = dep.observers[dep.observers.length - 1];
-          dep.observers.pop();
+  removeSourceObserver(index: number) {
+    if (this.sources) {
+      for (let i = index; i < this.sources.length; i++) {
+        const source: Reactive<any> = this.sources[i];
+        if (source.observers) {
+          const swap = source.observers.findIndex((o) => o === this);
+          source.observers[swap] =
+            source.observers[source.observers.length - 1];
+          source.observers.pop();
         }
       }
     }
@@ -197,25 +166,23 @@ export class Reactive<T> {
   }
 
   dispose() {
-    this._value = undefined as any;
-    this.compute = undefined;
-    this._state = CacheState.Clean;
-    this.removeDepObserver(0);
-    this.deps = null;
+    this._state = CacheState.Disposed;
     this.handleCleanup();
-    this._disposed = true;
+    if (this.sources) this.removeSourceObserver(0);
+    this.sources = null;
+    this.observers = null;
   }
 }
 
 function suspendTracking(newObserver: Reactive<any> | null = null) {
   const currContext = {
     currentObserver,
-    newSources: newDeps,
-    currentSourceIndex: currentDepIndex,
+    newSources: newSources,
+    currentSourceIndex: currentSourceIndex,
   };
   currentObserver = newObserver;
-  newDeps = null;
-  currentDepIndex = 0;
+  newSources = null;
+  currentSourceIndex = 0;
   return currContext;
 }
 
@@ -226,8 +193,8 @@ function resumeTracking(context: {
 }) {
   ({
     currentObserver,
-    newSources: newDeps,
-    currentSourceIndex: currentDepIndex,
+    newSources: newSources,
+    currentSourceIndex: currentSourceIndex,
   } = context);
 }
 
@@ -238,8 +205,7 @@ function scheduleEffect(effect: Reactive<any>) {
     queueMicrotask(() => {
       for (let i = 0; i < effectsQueue.length; i++) {
         const effect = effectsQueue[i];
-        if (effect.state !== CacheState.Clean && !effect.disposed)
-          effectsQueue[i].get();
+        if (effect.state !== CacheState.Clean) effectsQueue[i].get();
       }
       effectsScheduled = false;
     });
@@ -250,9 +216,11 @@ export function effect(fn: () => any) {
   new Reactive(fn, true);
 }
 
+// should only be called inside an effect
 export function onCleanup(fn: Cleanup) {
   if (currentObserver) {
-    currentObserver.cleanups.push(fn);
+    if (!currentObserver.cleanups) currentObserver.cleanups = [fn];
+    else currentObserver.cleanups.push(fn);
   }
 }
 
@@ -265,19 +233,17 @@ export function unTrack<T>(fn: () => T): T {
   }
 }
 
-export function createRoot<T = any>(fn: () => T): [T, () => void] {
-  const prevChildNodes = childNodes;
-  childNodes = new Set();
-  try {
-    const val = fn();
-    const capturedChildNodes = [...childNodes];
-    const dispose = () => {
-      for (const node of capturedChildNodes) {
-        node.dispose();
-      }
-    };
-    return [val, dispose] as const;
-  } finally {
-    childNodes = prevChildNodes;
-  }
+export function createRoot<T = any>(fn: (dispose: () => void) => T): T {
+  const prevChildNodes = children;
+  children = [];
+  const dispose = () => {
+    if (!children) return;
+    for (let i = children.length - 1; i >= 0; i--) {
+      children[i].dispose();
+    }
+    children = null;
+  };
+  const result = unTrack(fn.bind(null, dispose));
+  children = prevChildNodes;
+  return result;
 }

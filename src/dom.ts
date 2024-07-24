@@ -67,8 +67,12 @@ function handleSignalChild(
 
 function handleFunctionChild(element: HTMLElement, child: ChildFunction): void {
   let currentNode: Node | null = null;
+  let dispose: () => void;
   effect(() => {
-    const [childValue, dispose] = createRoot(child);
+    const childValue = createRoot((disposeFn) => {
+      dispose = disposeFn;
+      return child();
+    });
     const value = resolveChild(childValue);
     updateChild(element, value, currentNode, (node) => {
       currentNode = node;
@@ -106,7 +110,7 @@ function updateChild(
 function resolveChild(child: Child): string | Node | null {
   if (child == null || typeof child === "boolean") return null;
   if (typeof child === "string" || typeof child === "number")
-    return child.toString();
+    return String(child);
   if (child instanceof Node) return child;
   if (isSignal(child)) return child().toString();
   if (isFunc(child)) return resolveChild(child());
