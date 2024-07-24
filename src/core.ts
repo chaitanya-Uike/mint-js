@@ -30,10 +30,20 @@ export class Reactive<T> {
   cleanups: Cleanup[] | null = null;
 
   constructor(initValue: (() => T) | T, effect = false) {
-    this.compute = isFunc(initValue) ? initValue : undefined;
-    this._state = this.compute ? CacheState.Dirty : CacheState.Clean;
-    this._value = this.compute ? this.get() : (initValue as T);
-    this.effect = effect;
+    if (typeof initValue === "function") {
+      this.compute = initValue as ComputeFn<T>;
+      this._value = undefined as any;
+      this._state = CacheState.Dirty;
+      this.effect = effect;
+
+      if (effect) {
+        scheduleEffect(this);
+      }
+    } else {
+      this._value = initValue as T;
+      this._state = CacheState.Clean;
+      this.effect = false;
+    }
     if (children) children.push(this);
   }
 
@@ -243,7 +253,7 @@ export function createRoot<T = any>(fn: (dispose: () => void) => T): T {
     }
     children = null;
   };
-  const result = unTrack(fn.bind(null, dispose));
+  const result = fn(dispose);
   children = prevChildNodes;
   return result;
 }

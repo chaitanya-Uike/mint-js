@@ -21,10 +21,20 @@ export class Reactive {
     observers = null;
     cleanups = null;
     constructor(initValue, effect = false) {
-        this.compute = isFunc(initValue) ? initValue : undefined;
-        this._state = this.compute ? CacheState.Dirty : CacheState.Clean;
-        this._value = this.compute ? undefined : initValue;
-        this.effect = effect;
+        if (typeof initValue === "function") {
+            this.compute = initValue;
+            this._value = undefined;
+            this._state = CacheState.Dirty;
+            this.effect = effect;
+            if (effect) {
+                scheduleEffect(this);
+            }
+        }
+        else {
+            this._value = initValue;
+            this._state = CacheState.Clean;
+            this.effect = false;
+        }
         if (children)
             children.push(this);
     }
@@ -225,7 +235,7 @@ export function createRoot(fn) {
         }
         children = null;
     };
-    const result = unTrack(fn.bind(null, dispose));
+    const result = fn(dispose);
     children = prevChildNodes;
     return result;
 }
