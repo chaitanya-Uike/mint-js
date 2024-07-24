@@ -115,9 +115,10 @@ function resolveChild(child: Child): string | Node | null {
   if (isSignal(child)) return child().toString();
   if (isFunc(child)) return resolveChild(child());
   if (Array.isArray(child)) {
-    const fragment = document.createDocumentFragment();
-    appendChildren(fragment as unknown as HTMLElement, child);
-    return fragment;
+    //TODO will need to update this later
+    const wrapper = document.createElement("div");
+    appendChildren(wrapper, child);
+    return wrapper;
   }
   return null;
 }
