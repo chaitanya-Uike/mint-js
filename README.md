@@ -433,7 +433,7 @@ const TodoList = Component(() => {
     tags.ul({ className: "space-y-2" }, () =>
       todos().map((todo) =>
         tags.li(
-          { key: todo.id, className: "flex items-center" },
+          { className: "flex items-center" },
           tags.input({
             type: "checkbox",
             checked: todo.done,
