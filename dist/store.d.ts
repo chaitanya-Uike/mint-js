@@ -1,10 +1,7 @@
-import { Signal } from "./signals";
-type Unwrap<T> = T extends Signal<infer U> ? U : T;
-export type Store<T extends object> = {
-    [K in keyof T]: T[K] extends object ? Store<T[K]> : Signal<T[K]>;
+type Store<T extends object> = T & {
+    [STORE]?: boolean;
 };
-type WritableStore<T extends object> = {
-    [K in keyof T]: T[K] extends object ? WritableStore<T[K]> : Unwrap<T[K]>;
-};
-declare function createStore<T extends object>(initialState: T): WritableStore<T>;
-export { createStore };
+declare const STORE: unique symbol;
+export declare function createStore<T extends object>(initialState: T): Store<T>;
+export declare function isStore(value: any): value is Store<any>;
+export {};
