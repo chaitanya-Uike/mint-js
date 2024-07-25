@@ -145,7 +145,7 @@ The `tags` functions can create reactive contexts in both props and children by 
 import { signal, tags } from "mint-js";
 
 const count = signal(0);
-const isEven = () => count() % 2 === 0;
+const isEven = signal(() => count() % 2 === 0);
 
 const counter = tags.div(
   {
