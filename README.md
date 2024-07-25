@@ -4,7 +4,7 @@ Mint is a lightweight, fine-grained reactive frontend library for building user 
 
 ## Installation
 
-Install mint-js using npm:
+Install mint-js:
 
 ```bash
 npm i https://github.com/chaitanya-Uike/mint-js
