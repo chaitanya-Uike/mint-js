@@ -206,7 +206,10 @@ export function Component<T extends FnType>(
 ): (...args: Parameters<T>) => ReturnType<T> {
   return (...args: Parameters<T>): ReturnType<T> => {
     return unTrack(() => {
-      return fn(...args) as ReturnType<T>;
+      return createRoot((dispose) => {
+        onCleanup(dispose);
+        return fn(...args);
+      }) as ReturnType<T>;
     });
   };
 }

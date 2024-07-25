@@ -150,7 +150,10 @@ export const tags = new Proxy(createElement, {
 export function Component(fn) {
     return (...args) => {
         return unTrack(() => {
-            return fn(...args);
+            return createRoot((dispose) => {
+                onCleanup(dispose);
+                return fn(...args);
+            });
         });
     };
 }
