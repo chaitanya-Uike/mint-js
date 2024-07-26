@@ -107,7 +107,6 @@ export class Reactive<T = any> {
     }
 
     this.sources = updatedSources;
-    newSources = null;
   }
 
   private notifyObservers(state: CacheStale) {
