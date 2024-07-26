@@ -96,7 +96,6 @@ export class Reactive {
             }
         }
         this.sources = updatedSources;
-        newSources = null;
     }
     notifyObservers(state) {
         if (this.observers) {
