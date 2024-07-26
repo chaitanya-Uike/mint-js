@@ -21,10 +21,6 @@ export declare class Reactive<T = any> {
     private updateIfRequired;
     private update;
     private updateGraph;
-    findSourceChanges(): {
-        added: Set<Reactive<any>>;
-        removed: Set<Reactive<any>>;
-    };
     private notifyObservers;
     handleCleanup(): void;
     private stale;

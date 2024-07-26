@@ -88,36 +88,31 @@ export class Reactive<T = any> {
     this._state = CacheState.Clean;
   }
 
-  private updateGraph() {
-    const { added, removed } = this.findSourceChanges();
-    for (const removedSource of removed) removedSource.observers?.delete(this);
-    for (const addedSource of added) {
-      if (!addedSource.observers) addedSource.observers = new Set();
-      addedSource.observers.add(this);
-    }
-    this.sources = newSources;
-  }
+  private updateGraph(): void {
+    if (!newSources) return;
 
-  findSourceChanges() {
-    const currentSources = this.sources || new Set();
-    const updatedSources = newSources || new Set();
-
-    const added = new Set<Reactive>();
-    const removed = new Set<Reactive>();
-
-    for (const elem of updatedSources) {
-      if (!currentSources.has(elem)) {
-        added.add(elem);
+    if (!this.sources) {
+      this.sources = newSources;
+      for (const source of newSources) {
+        if (!source.observers) source.observers = new Set();
+        source.observers.add(this);
+      }
+    } else {
+      const oldSources = this.sources;
+      this.sources = newSources;
+      for (const source of oldSources) {
+        if (!newSources.has(source)) {
+          source.observers?.delete(this);
+        }
+      }
+      for (const source of newSources) {
+        if (!oldSources.has(source)) {
+          if (!source.observers) source.observers = new Set();
+          source.observers.add(this);
+        }
       }
     }
-
-    for (const elem of currentSources) {
-      if (!updatedSources.has(elem)) {
-        removed.add(elem);
-      }
-    }
-
-    return { added, removed };
+    newSources = null;
   }
 
   private notifyObservers(state: CacheStale) {
