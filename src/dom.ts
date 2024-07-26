@@ -70,6 +70,7 @@ function updateChild(
   currStart: Marker,
   currEnd: Marker
 ): [Marker, Marker] {
+  // TODO optimize this for array children
   remove(element, currStart, currEnd);
   return resolveChild(element, value);
 }
@@ -96,12 +97,12 @@ function resolveChild(element: Node, child: Child): [Marker, Marker] {
   if (typeof child === "string" || typeof child === "number") {
     const textNode = document.createTextNode(String(child));
     element.appendChild(textNode);
-    return [textNode, textNode];
+    return [null, textNode];
   }
 
   if (child instanceof Node) {
     element.appendChild(child);
-    return [child, child];
+    return [null, child];
   }
 
   if (isSignal(child)) {
