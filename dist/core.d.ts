@@ -6,13 +6,13 @@ declare enum CacheState {
 }
 type ComputeFn<T> = (prevVal?: T) => T;
 type Cleanup = () => void;
-export declare class Reactive<T> {
+export declare class Reactive<T = any> {
     private _value;
     private compute?;
     private _state;
     private effect;
-    sources: Reactive<any>[] | null;
-    observers: Reactive<any>[] | null;
+    sources: Set<Reactive> | null;
+    observers: Set<Reactive> | null;
     cleanups: Cleanup[] | null;
     constructor(initValue: (() => T) | T, effect?: boolean);
     get(): T;
@@ -21,9 +21,12 @@ export declare class Reactive<T> {
     private updateIfRequired;
     private update;
     private updateGraph;
+    findSourceChanges(): {
+        added: Set<Reactive<any>>;
+        removed: Set<Reactive<any>>;
+    };
     private notifyObservers;
     handleCleanup(): void;
-    removeSourceObserver(index: number): void;
     private stale;
     dispose(): void;
 }

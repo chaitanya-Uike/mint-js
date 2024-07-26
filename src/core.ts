@@ -1,9 +1,8 @@
-let currentObserver: Reactive<any> | null = null;
-let newSources: Reactive<any>[] | null = null;
-let currentSourceIndex = 0;
-let effectsQueue: Reactive<any>[] = [];
+let currentObserver: Reactive | null = null;
+let newSources: Set<Reactive> | null = null;
+let effectsQueue: Reactive[] = [];
 let effectsScheduled = false;
-let children: Reactive<any>[] | null = null;
+let children: Reactive[] | null = null;
 
 enum CacheState {
   Clean,
@@ -19,13 +18,13 @@ type Cleanup = () => void;
 
 const isFunc = (val: any): val is Function => typeof val === "function";
 
-export class Reactive<T> {
+export class Reactive<T = any> {
   private _value: T;
   private compute?: ComputeFn<T>;
   private _state: CacheState;
   private effect: boolean;
-  sources: Reactive<any>[] | null = null;
-  observers: Reactive<any>[] | null = null;
+  sources: Set<Reactive> | null = null;
+  observers: Set<Reactive> | null = null;
 
   cleanups: Cleanup[] | null = null;
 
@@ -40,18 +39,8 @@ export class Reactive<T> {
 
   get(): T {
     if (this.state === CacheState.Disposed) return this._value;
-    if (currentObserver) {
-      if (
-        !newSources &&
-        currentObserver.sources &&
-        currentObserver.sources[currentSourceIndex] === this
-      ) {
-        currentSourceIndex++;
-      } else {
-        if (!newSources) newSources = [this];
-        else newSources.push(this);
-      }
-    }
+    if (!newSources) newSources = new Set();
+    newSources.add(this);
     if (this.compute) this.updateIfRequired();
     return this._value;
   }
@@ -100,30 +89,35 @@ export class Reactive<T> {
   }
 
   private updateGraph() {
-    // if new dependencies were discovered in current run
-    if (newSources) {
-      this.removeSourceObserver(currentSourceIndex);
-      if (this.sources && currentSourceIndex > 0) {
-        this.sources.length = currentSourceIndex + newSources.length;
-        for (let i = 0; i < newSources.length; i++) {
-          this.sources[currentSourceIndex + i] = newSources[i];
-        }
-      } else {
-        this.sources = newSources;
-      }
+    const { added, removed } = this.findSourceChanges();
+    for (const removedSource of removed) removedSource.observers?.delete(this);
+    for (const addedSource of added) {
+      if (!addedSource.observers) addedSource.observers = new Set();
+      addedSource.observers.add(this);
+    }
+    this.sources = newSources;
+  }
 
-      // add current reactiveNode as an observer of the new deps
-      for (let i = currentSourceIndex; i < this.sources.length; i++) {
-        const source: Reactive<any> = this.sources[i];
-        if (!source.observers) source.observers = [this];
-        else source.observers.push(this);
+  findSourceChanges() {
+    const currentSources = this.sources || new Set();
+    const updatedSources = newSources || new Set();
+
+    const added = new Set<Reactive>();
+    const removed = new Set<Reactive>();
+
+    for (const elem of updatedSources) {
+      if (!currentSources.has(elem)) {
+        added.add(elem);
       }
     }
-    // some old dependencies were not captured in the current run, remove them
-    else if (this.sources && currentSourceIndex < this.sources.length) {
-      this.removeSourceObserver(currentSourceIndex);
-      this.sources.length = currentSourceIndex;
+
+    for (const elem of currentSources) {
+      if (!updatedSources.has(elem)) {
+        removed.add(elem);
+      }
     }
+
+    return { added, removed };
   }
 
   private notifyObservers(state: CacheStale) {
@@ -138,20 +132,6 @@ export class Reactive<T> {
         this.cleanups[i]();
       }
       this.cleanups = null;
-    }
-  }
-
-  removeSourceObserver(index: number) {
-    if (this.sources) {
-      for (let i = index; i < this.sources.length; i++) {
-        const source: Reactive<any> = this.sources[i];
-        if (source.observers) {
-          const swap = source.observers.findIndex((o) => o === this);
-          source.observers[swap] =
-            source.observers[source.observers.length - 1];
-          source.observers.pop();
-        }
-      }
     }
   }
 
@@ -171,34 +151,31 @@ export class Reactive<T> {
   dispose() {
     this._state = CacheState.Disposed;
     this.handleCleanup();
-    if (this.sources) this.removeSourceObserver(0);
+    if (this.sources) {
+      for (const source of this.sources) {
+        source.observers?.delete(this);
+      }
+    }
     this.sources = null;
     this.observers = null;
   }
 }
 
-function suspendTracking(newObserver: Reactive<any> | null = null) {
+function suspendTracking(newObserver: Reactive | null = null) {
   const currContext = {
     currentObserver,
     newSources: newSources,
-    currentSourceIndex: currentSourceIndex,
   };
   currentObserver = newObserver;
   newSources = null;
-  currentSourceIndex = 0;
   return currContext;
 }
 
 function resumeTracking(context: {
-  currentObserver: Reactive<any> | null;
-  newSources: Reactive<any>[] | null;
-  currentSourceIndex: number;
+  currentObserver: Reactive | null;
+  newSources: Set<Reactive> | null;
 }) {
-  ({
-    currentObserver,
-    newSources: newSources,
-    currentSourceIndex: currentSourceIndex,
-  } = context);
+  ({ currentObserver, newSources: newSources } = context);
 }
 
 function flush() {
