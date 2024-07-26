@@ -89,29 +89,24 @@ export class Reactive<T = any> {
   }
 
   private updateGraph(): void {
-    if (!newSources) return;
+    const currentSources = this.sources || new Set<Reactive>();
+    const updatedSources = newSources || new Set<Reactive>();
 
-    if (!this.sources) {
-      this.sources = newSources;
-      for (const source of newSources) {
-        if (!source.observers) source.observers = new Set();
-        source.observers.add(this);
-      }
-    } else {
-      const oldSources = this.sources;
-      this.sources = newSources;
-      for (const source of oldSources) {
-        if (!newSources.has(source)) {
-          source.observers?.delete(this);
-        }
-      }
-      for (const source of newSources) {
-        if (!oldSources.has(source)) {
-          if (!source.observers) source.observers = new Set();
-          source.observers.add(this);
-        }
+    // Remove this observer from sources that are no longer present
+    for (const source of currentSources) {
+      if (!updatedSources.has(source)) {
+        source.observers?.delete(this);
       }
     }
+
+    // Add this observer to new sources
+    for (const source of updatedSources) {
+      if (!currentSources.has(source)) {
+        (source.observers ??= new Set()).add(this);
+      }
+    }
+
+    this.sources = updatedSources;
     newSources = null;
   }
 
