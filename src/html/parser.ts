@@ -111,9 +111,7 @@ export default class HTMLParser {
 
   private parseAttributeValue(): any {
     if (this.match("QUOTE")) {
-      const val = this.parseQuotedString();
-      this.advance();
-      return val;
+      return this.parseQuotedString();
     } else if (this.is("INTERPOLATION")) {
       const val = this.current!.value;
       this.advance();
