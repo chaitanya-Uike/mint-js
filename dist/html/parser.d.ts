@@ -29,5 +29,6 @@ export default class HTMLParser {
     private consume;
     private match;
     private appendChild;
+    private skipWhiteSpace;
     private prettifyError;
 }

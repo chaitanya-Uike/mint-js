@@ -47,6 +47,7 @@ export default class HTMLParser {
     }
     parseOpeningTag() {
         this.consume("LESS_THAN");
+        this.skipWhiteSpace();
         if (this.match("FORWARD_SLASH")) {
             this.parseClosingTag();
             return;
@@ -61,8 +62,11 @@ export default class HTMLParser {
         else {
             type = this.parseWord();
         }
+        this.skipWhiteSpace();
         const props = this.parseProps();
+        this.skipWhiteSpace();
         const isSelfClosing = this.match("FORWARD_SLASH");
+        this.skipWhiteSpace();
         this.consume("GREATER_THAN");
         const element = { type, props, children: [] };
         if (!isSelfClosing) {
@@ -80,15 +84,19 @@ export default class HTMLParser {
         while (this.current &&
             this.current.type !== "GREATER_THAN" &&
             this.current.type !== "FORWARD_SLASH") {
+            this.skipWhiteSpace();
             const name = this.parseWord();
+            this.skipWhiteSpace();
             let value = true;
             if (this.match("EQUALS")) {
+                this.skipWhiteSpace();
                 value = this.parseAttributeValue();
             }
             if (!name)
                 this.advance();
             else
                 props[name] = value;
+            this.skipWhiteSpace();
         }
         return props;
     }
@@ -115,11 +123,13 @@ export default class HTMLParser {
         return text;
     }
     parseClosingTag() {
+        this.skipWhiteSpace();
         if (this.match("FORWARD_SLASH")) {
             this.parseCustomElementClosingTag();
             return;
         }
         const tagName = this.parseWord();
+        this.skipWhiteSpace();
         this.consume("GREATER_THAN");
         if (this.stack.length === 0) {
             throw new Error(this.prettifyError(`Unexpected closing tag </${tagName}>`));
@@ -149,6 +159,7 @@ export default class HTMLParser {
         return word;
     }
     parseCustomElementClosingTag() {
+        this.skipWhiteSpace();
         this.consume("GREATER_THAN");
         if (this.stack.length === 0) {
             throw new Error(this.prettifyError(`Unexpected closing tag <//>`));
@@ -186,6 +197,7 @@ export default class HTMLParser {
             return;
         const value = this.current.value;
         this.advance();
+        this.skipWhiteSpace();
         if (this.stack.length > 0) {
             this.appendChild(value);
         }
@@ -212,6 +224,9 @@ export default class HTMLParser {
         if (!isASTNode(top))
             throw new Error(this.prettifyError(`Invalid HTML structure`));
         top.children.push(child);
+    }
+    skipWhiteSpace() {
+        while (this.match("WHITE_SPACE")) { }
     }
     prettifyError(message) {
         const lines = this.template.split("\n");
