@@ -1,12 +1,9 @@
 export default function* lexer(strings, values) {
     let line = 1;
     let column = 1;
-    let quoteBuffer = "";
     let spaceBuffer = "";
     let textBuffer = "";
     let bufferStart = 1;
-    let quoteStarted = false;
-    // TODO need to refactor this
     function* flushBuffer(type, buffer) {
         if (buffer.length) {
             yield {
@@ -37,57 +34,28 @@ export default function* lexer(strings, values) {
                         position: { line, column },
                     };
                 }
-                else if (char === '"') {
-                    if (quoteStarted) {
-                        quoteBuffer += char;
-                        for (const token of flushBuffer("QUOTED_STRING", quoteBuffer)) {
-                            yield token;
-                        }
-                        quoteBuffer = "";
-                        quoteStarted = false;
-                    }
-                    else {
+                else if (isWhitespace(char)) {
+                    if (!spaceBuffer.length) {
                         for (const token of flushBuffer("TEXT", textBuffer)) {
                             yield token;
                         }
                         textBuffer = "";
-                        quoteBuffer = char;
                         bufferStart = column;
-                        quoteStarted = true;
                     }
-                }
-                else if (isWhitespace(char)) {
-                    if (!quoteStarted) {
-                        if (!spaceBuffer.length) {
-                            for (const token of flushBuffer("TEXT", textBuffer)) {
-                                yield token;
-                            }
-                            textBuffer = "";
-                            bufferStart = column;
-                        }
-                        spaceBuffer += char;
-                        if (char === "\n") {
-                            line++;
-                            column = 0;
-                        }
-                    }
-                    else {
-                        quoteBuffer += char;
+                    spaceBuffer += char;
+                    if (char === "\n") {
+                        line++;
+                        column = 0;
                     }
                 }
                 else {
-                    if (quoteStarted) {
-                        quoteBuffer += char;
+                    for (const token of flushBuffer("WHITE_SPACE", spaceBuffer)) {
+                        yield token;
                     }
-                    else {
-                        for (const token of flushBuffer("WHITE_SPACE", spaceBuffer)) {
-                            yield token;
-                        }
-                        spaceBuffer = "";
-                        if (!textBuffer.length)
-                            bufferStart = column;
-                        textBuffer += char;
-                    }
+                    spaceBuffer = "";
+                    if (!textBuffer.length)
+                        bufferStart = column;
+                    textBuffer += char;
                 }
                 column++;
             }
@@ -104,9 +72,6 @@ export default function* lexer(strings, values) {
             yield { type: "INTERPOLATION", value: piece, position: { line, column } };
             column++;
         }
-    }
-    if (quoteStarted) {
-        throw new Error(`QUOTED_STRING at line: ${line} col: ${bufferStart} not closed`);
     }
     for (const token of flushBuffer("WHITE_SPACE", spaceBuffer)) {
         yield token;
@@ -126,4 +91,5 @@ const SpecialTokens = {
     ">": "GREATER_THAN",
     "/": "FORWARD_SLASH",
     "=": "EQUALS",
+    '"': "QUOTE",
 };

@@ -69,7 +69,7 @@ export default class HTMLParser {
       throw new Error(this.prettifyError("Unexpected end of input"));
 
     let type: string | Function;
-    if (this.current.type === "INTERPOLATION") {
+    if (this.is("INTERPOLATION")) {
       type = this.current.value as Function;
       this.advance();
     } else {
@@ -110,13 +110,27 @@ export default class HTMLParser {
   }
 
   private parseAttributeValue(): any {
-    if (this.match("QUOTED_STRING")) {
-      return this.current!.value.slice(1, -1);
-    } else if (this.match("INTERPOLATION")) {
-      return this.current!.value;
+    if (this.match("QUOTE")) {
+      const val = this.parseQuotedString();
+      this.advance();
+      return val;
+    } else if (this.is("INTERPOLATION")) {
+      const val = this.current!.value;
+      this.advance();
+      return val;
     } else {
       return this.parseWord();
     }
+  }
+
+  private parseQuotedString() {
+    let text = "";
+    while (this.current && this.current.type !== "QUOTE") {
+      text += this.current.value;
+      this.advance();
+    }
+    this.consume("QUOTE");
+    return text;
   }
 
   private parseClosingTag() {
@@ -156,8 +170,8 @@ export default class HTMLParser {
 
   private parseWord(): string {
     let word = "";
-    while (this.current && this.current.type === "TEXT") {
-      word += this.current.value;
+    while (this.is("TEXT")) {
+      word += this.current!.value;
       this.advance();
     }
     return word;
@@ -188,7 +202,7 @@ export default class HTMLParser {
     let text = "";
     while (
       this.current &&
-      (this.current.type === "TEXT" || this.current.type === "WHITE_SPACE")
+      ["TEXT", "WHITE_SPACE", "QUOTE"].includes(this.current.type)
     ) {
       text += this.current.value;
       this.advance();
@@ -208,6 +222,10 @@ export default class HTMLParser {
     }
   }
 
+  private is(type: Token["type"]) {
+    return !!this.current && this.current.type === type;
+  }
+
   private consume(type: Token["type"]): void {
     if (!this.current)
       throw new Error(
@@ -225,7 +243,7 @@ export default class HTMLParser {
   }
 
   private match(type: Token["type"]): boolean {
-    if (this.current && this.current.type === type) {
+    if (this.is(type)) {
       this.advance();
       return true;
     }

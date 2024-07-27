@@ -49,7 +49,7 @@ export default class HTMLParser {
         if (!this.current)
             throw new Error(this.prettifyError("Unexpected end of input"));
         let type;
-        if (this.current.type === "INTERPOLATION") {
+        if (this.is("INTERPOLATION")) {
             type = this.current.value;
             this.advance();
         }
@@ -88,15 +88,28 @@ export default class HTMLParser {
         return props;
     }
     parseAttributeValue() {
-        if (this.match("QUOTED_STRING")) {
-            return this.current.value.slice(1, -1);
+        if (this.match("QUOTE")) {
+            const val = this.parseQuotedString();
+            this.advance();
+            return val;
         }
-        else if (this.match("INTERPOLATION")) {
-            return this.current.value;
+        else if (this.is("INTERPOLATION")) {
+            const val = this.current.value;
+            this.advance();
+            return val;
         }
         else {
             return this.parseWord();
         }
+    }
+    parseQuotedString() {
+        let text = "";
+        while (this.current && this.current.type !== "QUOTE") {
+            text += this.current.value;
+            this.advance();
+        }
+        this.consume("QUOTE");
+        return text;
     }
     parseClosingTag() {
         if (this.match("FORWARD_SLASH")) {
@@ -124,7 +137,7 @@ export default class HTMLParser {
     }
     parseWord() {
         let word = "";
-        while (this.current && this.current.type === "TEXT") {
+        while (this.is("TEXT")) {
             word += this.current.value;
             this.advance();
         }
@@ -149,7 +162,7 @@ export default class HTMLParser {
     parseText() {
         let text = "";
         while (this.current &&
-            (this.current.type === "TEXT" || this.current.type === "WHITE_SPACE")) {
+            ["TEXT", "WHITE_SPACE", "QUOTE"].includes(this.current.type)) {
             text += this.current.value;
             this.advance();
         }
@@ -167,6 +180,9 @@ export default class HTMLParser {
             this.stack[this.stack.length - 1].children.push(value);
         }
     }
+    is(type) {
+        return !!this.current && this.current.type === type;
+    }
     consume(type) {
         if (!this.current)
             throw new Error(this.prettifyError(`Expected token type ${type}, but reached end of input`));
@@ -175,7 +191,7 @@ export default class HTMLParser {
         this.advance();
     }
     match(type) {
-        if (this.current && this.current.type === type) {
+        if (this.is(type)) {
             this.advance();
             return true;
         }

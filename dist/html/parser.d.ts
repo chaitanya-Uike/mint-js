@@ -17,11 +17,13 @@ export default class HTMLParser {
     private parseOpeningTag;
     private parseProps;
     private parseAttributeValue;
+    private parseQuotedString;
     private parseClosingTag;
     private parseWord;
     private parseCustomElementClosingTag;
     private parseText;
     private parseInterpolation;
+    private is;
     private consume;
     private match;
     private prettifyError;
