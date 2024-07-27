@@ -16,7 +16,7 @@ function renderAST(node) {
     const { type, props, children } = node;
     const renderedChildren = children.map((child) => isASTNode(child) ? renderAST(child) : child);
     if (isFunction(type)) {
-        return Component(type)(props, ...renderedChildren);
+        return Component(type)({ ...props, children: renderedChildren });
     }
     else if (isHTMLTagName(type)) {
         return createElement(type, props, ...renderedChildren);

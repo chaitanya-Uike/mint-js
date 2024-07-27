@@ -22,7 +22,7 @@ function renderAST(node: ASTNode | string): Node {
   );
 
   if (isFunction(type)) {
-    return Component(type)(props, ...renderedChildren);
+    return Component(type)({ ...props, children: renderedChildren });
   } else if (isHTMLTagName(type)) {
     return createElement(type, props, ...renderedChildren);
   } else {

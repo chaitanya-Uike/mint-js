@@ -227,14 +227,20 @@ export const tags = new Proxy(createElement, {
 
 export type ComponentFunction = (props: Props, ...children: Child[]) => Node;
 
-export function Component<P extends Props, C extends Child[]>(
-  fn: (props: P, ...children: C) => Node
-): (props: P, ...children: C) => Node {
-  return (props: P, ...children: C): Node => {
+export function Component<P extends Props = {}>(
+  fn: (props: P & { children?: Child[] }) => Node
+): (props?: P & { children?: Child[] }) => Node {
+  return (props?: P & { children?: Child[] }): Node => {
     return unTrack(() => {
       return createRoot((dispose) => {
         onCleanup(dispose);
-        return fn(props, ...children);
+        const finalProps = props || ({} as P & { children?: Child[] });
+        finalProps.children = Array.isArray(finalProps.children)
+          ? finalProps.children
+          : finalProps.children !== undefined
+          ? [finalProps.children]
+          : [];
+        return fn(finalProps);
       });
     });
   };

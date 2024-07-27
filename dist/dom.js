@@ -164,11 +164,17 @@ export const tags = new Proxy(createElement, {
     },
 });
 export function Component(fn) {
-    return (props, ...children) => {
+    return (props) => {
         return unTrack(() => {
             return createRoot((dispose) => {
                 onCleanup(dispose);
-                return fn(props, ...children);
+                const finalProps = props || {};
+                finalProps.children = Array.isArray(finalProps.children)
+                    ? finalProps.children
+                    : finalProps.children !== undefined
+                        ? [finalProps.children]
+                        : [];
+                return fn(finalProps);
             });
         });
     };
