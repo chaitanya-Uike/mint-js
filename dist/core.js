@@ -182,17 +182,26 @@ export function unTrack(fn) {
     }
 }
 export function createRoot(fn) {
-    const prevChildNodes = children;
-    children = [];
-    const dispose = () => {
-        if (!children)
-            return;
-        for (let i = children.length - 1; i >= 0; i--) {
-            children[i].dispose();
-        }
-        children = null;
+    const root = {
+        _children: [],
+        dispose: function () {
+            children && this._children.push(...children);
+            for (let i = this._children.length - 1; i >= 0; i--) {
+                const child = this._children[i];
+                child !== this && child.dispose();
+            }
+            this._children.length = 0;
+            children = null;
+        },
     };
-    const result = fn(dispose);
-    children = prevChildNodes;
-    return result;
+    (children ?? (children = [])).push(root);
+    const prevChildren = children;
+    children = [];
+    try {
+        return fn(root.dispose.bind(root));
+    }
+    finally {
+        children && (root._children = [...children]);
+        children = prevChildren;
+    }
 }

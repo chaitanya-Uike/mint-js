@@ -1,3 +1,6 @@
+interface Disposable {
+    dispose: () => void;
+}
 declare enum CacheState {
     Clean = 0,
     Check = 1,
@@ -6,7 +9,7 @@ declare enum CacheState {
 }
 type ComputeFn<T> = (prevVal?: T) => T;
 type Cleanup = () => void;
-export declare class Reactive<T = any> {
+export declare class Reactive<T = any> implements Disposable {
     private _value;
     private compute?;
     private _state;

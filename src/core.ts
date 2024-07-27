@@ -4,7 +4,10 @@ let currentObserver: Reactive | null = null;
 let newSources: Set<Reactive> | null = null;
 let effectsQueue: Reactive[] = [];
 let effectsScheduled = false;
-let children: Reactive[] | null = null;
+interface Disposable {
+  dispose: () => void;
+}
+let children: Disposable[] | null = null;
 
 enum CacheState {
   Clean,
@@ -18,7 +21,7 @@ type CacheStale = CacheState.Check | CacheState.Dirty;
 type ComputeFn<T> = (prevVal?: T) => T;
 type Cleanup = () => void;
 
-export class Reactive<T = any> {
+export class Reactive<T = any> implements Disposable {
   private _value: T;
   private compute?: ComputeFn<T>;
   private _state: CacheState;
@@ -205,17 +208,30 @@ export function unTrack<T>(fn: () => T): T {
   }
 }
 
+interface Root extends Disposable {
+  _children: Disposable[];
+}
+
 export function createRoot<T = any>(fn: (dispose: () => void) => T): T {
-  const prevChildNodes = children;
-  children = [];
-  const dispose = () => {
-    if (!children) return;
-    for (let i = children.length - 1; i >= 0; i--) {
-      children[i].dispose();
-    }
-    children = null;
+  const root: Root = {
+    _children: [],
+    dispose: function () {
+      children && this._children.push(...children);
+      for (let i = this._children.length - 1; i >= 0; i--) {
+        const child = this._children[i];
+        child !== this && child.dispose();
+      }
+      this._children.length = 0;
+      children = null;
+    },
   };
-  const result = fn(dispose);
-  children = prevChildNodes;
-  return result;
+  (children ?? (children = [])).push(root);
+  const prevChildren = children;
+  children = [];
+  try {
+    return fn(root.dispose.bind(root));
+  } finally {
+    children && (root._children = [...children]);
+    children = prevChildren;
+  }
 }
