@@ -144,7 +144,7 @@ function suspendTracking(newObserver = null) {
 function resumeTracking(context) {
     ({ currentObserver, newSources: newSources } = context);
 }
-function flush() {
+export function flush() {
     for (let i = 0; i < effectsQueue.length; i++) {
         const effect = effectsQueue[i];
         if (effect.state !== CacheState.Clean)

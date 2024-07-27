@@ -26,6 +26,7 @@ export declare class Reactive<T = any> {
     private stale;
     dispose(): void;
 }
+export declare function flush(): void;
 export declare function effect(fn: () => any): void;
 export declare function onCleanup(fn: Cleanup): void;
 export declare function unTrack<T>(fn: () => T): T;
