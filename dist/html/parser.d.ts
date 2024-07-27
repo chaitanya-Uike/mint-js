@@ -1,8 +1,8 @@
-import { FnType } from "../dom";
+import { ComponentFunction } from "../dom";
 import { Props } from "../types";
 import { Token } from "./lexer";
 export type ASTNode = {
-    type: string | FnType;
+    type: string | ComponentFunction;
     props: Props;
     children: (ASTNode | string | null | boolean | number)[];
 };

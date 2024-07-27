@@ -147,12 +147,39 @@ export const tags = new Proxy(createElement, {
         return target.bind(null, name);
     },
 });
+export function isHTMLTagName(value) {
+    const validTags = [
+        "div",
+        "span",
+        "p",
+        "a",
+        "img",
+        "button",
+        "input",
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
+        "ul",
+        "ol",
+        "li",
+        "table",
+        "tr",
+        "td",
+        "th",
+        "form",
+        "label",
+    ];
+    return typeof value === "string" && validTags.includes(value);
+}
 export function Component(fn) {
-    return (...args) => {
+    return (props, ...children) => {
         return unTrack(() => {
             return createRoot((dispose) => {
                 onCleanup(dispose);
-                return fn(...args);
+                return fn(props, ...children);
             });
         });
     };
