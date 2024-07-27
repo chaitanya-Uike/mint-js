@@ -66,7 +66,7 @@ export default class HTMLParser {
 
   private parseOpeningTag() {
     this.consume("LESS_THAN");
-
+    this.skipWhiteSpace();
     if (this.match("FORWARD_SLASH")) {
       this.parseClosingTag();
       return;
@@ -83,8 +83,11 @@ export default class HTMLParser {
       type = this.parseWord();
     }
 
+    this.skipWhiteSpace();
     const props = this.parseProps();
+    this.skipWhiteSpace();
     const isSelfClosing = this.match("FORWARD_SLASH");
+    this.skipWhiteSpace();
     this.consume("GREATER_THAN");
 
     const element: ASTNode = { type, props, children: [] };
@@ -105,13 +108,17 @@ export default class HTMLParser {
       this.current.type !== "GREATER_THAN" &&
       this.current.type !== "FORWARD_SLASH"
     ) {
+      this.skipWhiteSpace();
       const name = this.parseWord();
+      this.skipWhiteSpace();
       let value: any = true;
       if (this.match("EQUALS")) {
+        this.skipWhiteSpace();
         value = this.parseAttributeValue();
       }
       if (!name) this.advance();
       else props[name] = value;
+      this.skipWhiteSpace();
     }
     return props;
   }
@@ -139,11 +146,13 @@ export default class HTMLParser {
   }
 
   private parseClosingTag() {
+    this.skipWhiteSpace();
     if (this.match("FORWARD_SLASH")) {
       this.parseCustomElementClosingTag();
       return;
     }
     const tagName = this.parseWord();
+    this.skipWhiteSpace();
     this.consume("GREATER_THAN");
 
     if (this.stack.length === 0) {
@@ -187,6 +196,7 @@ export default class HTMLParser {
   }
 
   private parseCustomElementClosingTag() {
+    this.skipWhiteSpace();
     this.consume("GREATER_THAN");
     if (this.stack.length === 0) {
       throw new Error(this.prettifyError(`Unexpected closing tag <//>`));
@@ -232,6 +242,7 @@ export default class HTMLParser {
     if (!this.current) return;
     const value = this.current.value;
     this.advance();
+    this.skipWhiteSpace();
     if (this.stack.length > 0) {
       this.appendChild(value);
     }
@@ -270,6 +281,10 @@ export default class HTMLParser {
     if (!isASTNode(top))
       throw new Error(this.prettifyError(`Invalid HTML structure`));
     top.children.push(child);
+  }
+
+  private skipWhiteSpace() {
+    while (this.match("WHITE_SPACE")) {}
   }
 
   private prettifyError(message: string): string {
