@@ -2,9 +2,8 @@ import { effect, createRoot, unTrack, onCleanup } from "./core";
 import { isSignal } from "./signals";
 import { isFunction } from "./utils";
 const getProto = Object.getPrototypeOf;
-const OBJECT_PROTO = getProto({});
 export const createElement = (name, ...args) => {
-    const [props, ...children] = args[0] && getProto(args[0]) === OBJECT_PROTO
+    const [props, ...children] = args[0] && Object.prototype.toString.call(args[0]) === "[object Object]"
         ? args
         : [{}, ...args];
     const element = document.createElement(name);
@@ -64,11 +63,11 @@ function resolveChild(element, child) {
     if (typeof child === "string" || typeof child === "number") {
         const textNode = document.createTextNode(String(child));
         element.appendChild(textNode);
-        return [null, textNode];
+        return [textNode, textNode];
     }
     if (child instanceof Node) {
         element.appendChild(child);
-        return [null, child];
+        return [child, child];
     }
     if (isSignal(child)) {
         return handleSignalChild(element, child);

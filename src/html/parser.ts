@@ -1,9 +1,9 @@
-import { FnType } from "../dom";
+import { ComponentFunction } from "../dom";
 import { Props } from "../types";
 import { Token } from "./lexer";
 
 export type ASTNode = {
-  type: string | FnType;
+  type: string | ComponentFunction;
   props: Props;
   children: (ASTNode | string | null | boolean | number)[];
 };
@@ -75,9 +75,9 @@ export default class HTMLParser {
     if (!this.current)
       throw new Error(this.prettifyError("Unexpected end of input"));
 
-    let type: string | FnType;
+    let type: string | ComponentFunction;
     if (this.is("INTERPOLATION")) {
-      type = this.current.value as FnType;
+      type = this.current.value as ComponentFunction;
       this.advance();
     } else {
       type = this.parseWord();

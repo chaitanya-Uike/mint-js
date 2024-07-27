@@ -11,7 +11,7 @@ export function html(strings, ...values) {
 }
 function renderAST(node) {
     if (typeof node === "string") {
-        return node;
+        return document.createTextNode(node);
     }
     const { type, props, children } = node;
     const renderedChildren = children.map((child) => isASTNode(child) ? renderAST(child) : child);

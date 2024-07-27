@@ -7,15 +7,15 @@ import type {
   StyleObject,
   TagsObject,
   Marker,
+  HTMLTagName,
 } from "./types";
 import { isFunction } from "./utils";
 
 const getProto = Object.getPrototypeOf;
-const OBJECT_PROTO = getProto({});
 
 export const createElement: CreateElement = (name, ...args) => {
   const [props, ...children] =
-    args[0] && getProto(args[0]) === OBJECT_PROTO
+    args[0] && Object.prototype.toString.call(args[0]) === "[object Object]"
       ? (args as [Props, ...Child[]])
       : ([{}, ...args] as [Props, ...Child[]]);
 
@@ -24,7 +24,7 @@ export const createElement: CreateElement = (name, ...args) => {
   handleProps(element, props);
   appendChildren(element, children);
 
-  return element;
+  return element as HTMLElementTagNameMap[typeof name];
 };
 
 function appendChildren(element: Node, children: Child[]): [Marker, Marker] {
@@ -96,12 +96,12 @@ function resolveChild(element: Node, child: Child): [Marker, Marker] {
   if (typeof child === "string" || typeof child === "number") {
     const textNode = document.createTextNode(String(child));
     element.appendChild(textNode);
-    return [null, textNode];
+    return [textNode, textNode];
   }
 
   if (child instanceof Node) {
     element.appendChild(child);
-    return [null, child];
+    return [child, child];
   }
 
   if (isSignal(child)) {
@@ -195,21 +195,49 @@ function getPropSetter(element: HTMLElement, key: string) {
 
 export const tags = new Proxy(createElement, {
   get(target, name: string) {
-    return target.bind(null, name);
+    return target.bind(null, name as HTMLTagName);
   },
 }) as unknown as TagsObject;
 
-export type FnType = (...args: any[]) => Child;
+export type ComponentFunction = (props: Props, ...children: Child[]) => Node;
 
-export function Component<T extends FnType>(
-  fn: T
-): (...args: Parameters<T>) => ReturnType<T> {
-  return (...args: Parameters<T>): ReturnType<T> => {
+export function isHTMLTagName(value: any): value is HTMLTagName {
+  const validTags: HTMLTagName[] = [
+    "div",
+    "span",
+    "p",
+    "a",
+    "img",
+    "button",
+    "input",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "ul",
+    "ol",
+    "li",
+    "table",
+    "tr",
+    "td",
+    "th",
+    "form",
+    "label",
+  ];
+  return typeof value === "string" && validTags.includes(value as HTMLTagName);
+}
+
+export function Component<P extends Props, C extends Child[]>(
+  fn: (props: P, ...children: C) => Node
+): (props: P, ...children: C) => Node {
+  return (props: P, ...children: C): Node => {
     return unTrack(() => {
       return createRoot((dispose) => {
         onCleanup(dispose);
-        return fn(...args);
-      }) as ReturnType<T>;
+        return fn(props, ...children);
+      });
     });
   };
 }

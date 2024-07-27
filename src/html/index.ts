@@ -1,10 +1,9 @@
 import HTMLParser, { ASTNode, isASTNode } from "./parser";
 import lexer from "./lexer";
-import { Component, createElement } from "../dom";
-import { Child } from "../types";
+import { Component, createElement, isHTMLTagName } from "../dom";
 import { isFunction } from "../utils";
 
-export function html(strings: TemplateStringsArray, ...values: any[]): Child {
+export function html(strings: TemplateStringsArray, ...values: any[]): Node {
   const tokens = lexer(strings, values);
   const template = getTemplate(strings, values);
   const parser = new HTMLParser(tokens, template);
@@ -12,9 +11,9 @@ export function html(strings: TemplateStringsArray, ...values: any[]): Child {
   return renderAST(ast);
 }
 
-function renderAST(node: ASTNode | string): Child {
+function renderAST(node: ASTNode | string): Node {
   if (typeof node === "string") {
-    return node;
+    return document.createTextNode(node);
   }
 
   const { type, props, children } = node;
@@ -23,9 +22,13 @@ function renderAST(node: ASTNode | string): Child {
     isASTNode(child) ? renderAST(child) : child
   );
 
-  return isFunction(type)
-    ? Component(type)(props, ...renderedChildren)
-    : createElement(type, props, ...renderedChildren);
+  if (isFunction(type)) {
+    return Component(type)(props, ...renderedChildren);
+  } else if (isHTMLTagName(type)) {
+    return createElement(type, props, ...renderedChildren);
+  } else {
+    throw new Error(`Invalid node type: ${type}`);
+  }
 }
 
 function getTemplate(strings: TemplateStringsArray, values: any[]) {
