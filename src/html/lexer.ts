@@ -11,6 +11,7 @@ export default function* lexer(
   let bufferStart = 1;
   let quoteStarted = false;
 
+  // TODO need to refactor this
   function* flushBuffer(
     type: Token["type"],
     buffer: string
