@@ -10,7 +10,6 @@ export function html(strings: TemplateStringsArray, ...values: any[]): Node {
   const ast = parser.parse();
   return renderAST(ast);
 }
-
 function renderAST(node: ASTNode | string): Node {
   if (typeof node === "string") {
     return document.createTextNode(node);

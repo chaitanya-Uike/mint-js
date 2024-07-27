@@ -24,7 +24,7 @@ export const createElement: CreateElement = (name, ...args) => {
   handleProps(element, props);
   appendChildren(element, children);
 
-  return element as HTMLElementTagNameMap[typeof name];
+  return element;
 };
 
 function appendChildren(element: Node, children: Child[]): [Marker, Marker] {
