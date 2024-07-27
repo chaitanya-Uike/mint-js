@@ -11,38 +11,34 @@ export const createElement = (name, ...args) => {
     appendChildren(element, children);
     return element;
 };
-function appendChildren(element, children) {
+function appendChildren(parent, children) {
     let start = null;
     let end = null;
-    children.forEach(resolveChild.bind(null, element));
-    end = element.lastChild;
-    if (element.firstChild !== end)
-        start = element.firstChild;
+    for (const child of children) {
+        const [childStart, childEnd] = resolveChild(parent, child, null, null);
+        if (!start)
+            start = childStart;
+        end = childEnd;
+    }
     return [start, end];
 }
-function handleSignalChild(element, child) {
-    const textNode = document.createTextNode(child().toString());
-    element.appendChild(textNode);
+function handleSignalChild(element, signal, currStart, currEnd) {
+    let markers = [currStart, currEnd];
     effect(() => {
-        textNode.nodeValue = child().toString();
-    });
-    return [null, textNode];
-}
-function handleFunctionChild(element, child) {
-    let markers = [null, null];
-    effect(() => {
-        const childValue = createRoot((disposeFn) => {
-            onCleanup(disposeFn);
-            return child();
-        });
-        markers = updateChild(element, childValue, ...markers);
+        markers = resolveChild(element, signal(), markers[0], markers[1]);
     });
     return markers;
 }
-function updateChild(element, value, currStart, currEnd) {
-    // TODO optimize this for array children
-    remove(element, currStart, currEnd);
-    return resolveChild(element, value);
+function handleFunctionChild(element, func, currStart, currEnd) {
+    let markers = [currStart, currEnd];
+    effect(() => {
+        const childValue = createRoot((dispose) => {
+            onCleanup(dispose);
+            return func();
+        });
+        markers = resolveChild(element, childValue, markers[0], markers[1]);
+    });
+    return markers;
 }
 function remove(element, start, end) {
     if (!start && !end)
@@ -56,34 +52,54 @@ function remove(element, start, end) {
         current = next;
     }
 }
-function resolveChild(element, child) {
+function insertBefore(parent, node, refNode) {
+    parent.insertBefore(node, refNode);
+}
+function resolveChild(element, child, currStart, currEnd) {
+    const nextSibling = currEnd ? currEnd.nextSibling : null;
     if (child == null || typeof child === "boolean") {
+        remove(element, currStart, currEnd);
         return [null, null];
     }
     if (typeof child === "string" || typeof child === "number") {
-        const textNode = document.createTextNode(String(child));
-        element.appendChild(textNode);
-        return [textNode, textNode];
+        if (currStart && currStart === currEnd && currStart instanceof Text) {
+            currStart.textContent = String(child);
+            return [currStart, currStart];
+        }
+        else {
+            const textNode = document.createTextNode(String(child));
+            remove(element, currStart, currEnd);
+            insertBefore(element, textNode, nextSibling);
+            return [textNode, textNode];
+        }
     }
     if (child instanceof Node) {
-        element.appendChild(child);
-        return [child, child];
+        if (currStart === child && currEnd === child) {
+            return [child, child];
+        }
+        else {
+            remove(element, currStart, currEnd);
+            insertBefore(element, child, nextSibling);
+            return [child, child];
+        }
     }
     if (isSignal(child)) {
-        return handleSignalChild(element, child);
+        return handleSignalChild(element, child, currStart, currEnd);
     }
     if (isFunction(child)) {
-        return handleFunctionChild(element, child);
+        return handleFunctionChild(element, child, currStart, currEnd);
     }
     if (Array.isArray(child)) {
-        const fragment = document.createDocumentFragment();
-        appendChildren(fragment, child);
-        const start = fragment.firstChild;
-        const end = fragment.lastChild;
-        element.appendChild(fragment);
-        return [start, end];
+        return handleArrayChild(element, child, currStart, currEnd, nextSibling);
     }
     throw new Error(`Unsupported child type: ${typeof child}`);
+}
+function handleArrayChild(element, children, currStart, currEnd, nextSibling) {
+    remove(element, currStart, currEnd);
+    const fragment = document.createDocumentFragment();
+    const [start, end] = appendChildren(fragment, children);
+    insertBefore(element, fragment, nextSibling);
+    return [start, end];
 }
 function handleProps(element, props) {
     Object.entries(props).forEach(([key, value]) => {
@@ -147,6 +163,16 @@ export const tags = new Proxy(createElement, {
         return target.bind(null, name);
     },
 });
+export function Component(fn) {
+    return (props, ...children) => {
+        return unTrack(() => {
+            return createRoot((dispose) => {
+                onCleanup(dispose);
+                return fn(props, ...children);
+            });
+        });
+    };
+}
 export function isHTMLTagName(value) {
     const validTags = [
         "div",
@@ -173,14 +199,4 @@ export function isHTMLTagName(value) {
         "label",
     ];
     return typeof value === "string" && validTags.includes(value);
-}
-export function Component(fn) {
-    return (props, ...children) => {
-        return unTrack(() => {
-            return createRoot((dispose) => {
-                onCleanup(dispose);
-                return fn(props, ...children);
-            });
-        });
-    };
 }

@@ -27,51 +27,45 @@ export const createElement: CreateElement = (name, ...args) => {
   return element;
 };
 
-function appendChildren(element: Node, children: Child[]): [Marker, Marker] {
+function appendChildren(parent: Node, children: Child[]): [Marker, Marker] {
   let start: Marker = null;
   let end: Marker = null;
-  children.forEach(resolveChild.bind(null, element));
-  end = element.lastChild;
-  if (element.firstChild !== end) start = element.firstChild;
+  for (const child of children) {
+    const [childStart, childEnd] = resolveChild(parent, child, null, null);
+    if (!start) start = childStart;
+    end = childEnd;
+  }
   return [start, end];
 }
 
 function handleSignalChild(
   element: Node,
-  child: Signal<any>
+  signal: Signal<Child>,
+  currStart: Marker,
+  currEnd: Marker
 ): [Marker, Marker] {
-  const textNode = document.createTextNode(child().toString());
-  element.appendChild(textNode);
+  let markers: [Marker, Marker] = [currStart, currEnd];
   effect(() => {
-    textNode.nodeValue = child().toString();
-  });
-  return [null, textNode];
-}
-
-function handleFunctionChild(
-  element: Node,
-  child: () => Child
-): [Marker, Marker] {
-  let markers: [Marker, Marker] = [null, null];
-  effect(() => {
-    const childValue = createRoot((disposeFn) => {
-      onCleanup(disposeFn);
-      return child();
-    });
-    markers = updateChild(element, childValue, ...markers);
+    markers = resolveChild(element, signal(), markers[0], markers[1]);
   });
   return markers;
 }
 
-function updateChild(
+function handleFunctionChild(
   element: Node,
-  value: Child,
+  func: () => Child,
   currStart: Marker,
   currEnd: Marker
 ): [Marker, Marker] {
-  // TODO optimize this for array children
-  remove(element, currStart, currEnd);
-  return resolveChild(element, value);
+  let markers: [Marker, Marker] = [currStart, currEnd];
+  effect(() => {
+    const childValue = createRoot((dispose) => {
+      onCleanup(dispose);
+      return func();
+    });
+    markers = resolveChild(element, childValue, markers[0], markers[1]);
+  });
+  return markers;
 }
 
 function remove(element: Node, start: Marker, end: Marker): void {
@@ -88,40 +82,72 @@ function remove(element: Node, start: Marker, end: Marker): void {
   }
 }
 
-function resolveChild(element: Node, child: Child): [Marker, Marker] {
+function insertBefore(parent: Node, node: Node, refNode: Node | null) {
+  parent.insertBefore(node, refNode);
+}
+
+function resolveChild(
+  element: Node,
+  child: Child,
+  currStart: Marker,
+  currEnd: Marker
+): [Marker, Marker] {
+  const nextSibling = currEnd ? currEnd.nextSibling : null;
+
   if (child == null || typeof child === "boolean") {
+    remove(element, currStart, currEnd);
     return [null, null];
   }
 
   if (typeof child === "string" || typeof child === "number") {
-    const textNode = document.createTextNode(String(child));
-    element.appendChild(textNode);
-    return [textNode, textNode];
+    if (currStart && currStart === currEnd && currStart instanceof Text) {
+      currStart.textContent = String(child);
+      return [currStart, currStart];
+    } else {
+      const textNode = document.createTextNode(String(child));
+      remove(element, currStart, currEnd);
+      insertBefore(element, textNode, nextSibling);
+      return [textNode, textNode];
+    }
   }
 
   if (child instanceof Node) {
-    element.appendChild(child);
-    return [child, child];
+    if (currStart === child && currEnd === child) {
+      return [child, child];
+    } else {
+      remove(element, currStart, currEnd);
+      insertBefore(element, child, nextSibling);
+      return [child, child];
+    }
   }
 
   if (isSignal(child)) {
-    return handleSignalChild(element, child);
+    return handleSignalChild(element, child, currStart, currEnd);
   }
 
   if (isFunction(child)) {
-    return handleFunctionChild(element, child);
+    return handleFunctionChild(element, child, currStart, currEnd);
   }
 
   if (Array.isArray(child)) {
-    const fragment = document.createDocumentFragment();
-    appendChildren(fragment, child);
-    const start = fragment.firstChild;
-    const end = fragment.lastChild;
-    element.appendChild(fragment);
-    return [start, end];
+    return handleArrayChild(element, child, currStart, currEnd, nextSibling);
   }
 
   throw new Error(`Unsupported child type: ${typeof child}`);
+}
+
+function handleArrayChild(
+  element: Node,
+  children: Child[],
+  currStart: Marker,
+  currEnd: Marker,
+  nextSibling: Node | null
+): [Marker, Marker] {
+  remove(element, currStart, currEnd);
+  const fragment = document.createDocumentFragment();
+  const [start, end] = appendChildren(fragment, children);
+  insertBefore(element, fragment, nextSibling);
+  return [start, end];
 }
 
 function handleProps(element: HTMLElement, props: Props): void {
@@ -201,6 +227,19 @@ export const tags = new Proxy(createElement, {
 
 export type ComponentFunction = (props: Props, ...children: Child[]) => Node;
 
+export function Component<P extends Props, C extends Child[]>(
+  fn: (props: P, ...children: C) => Node
+): (props: P, ...children: C) => Node {
+  return (props: P, ...children: C): Node => {
+    return unTrack(() => {
+      return createRoot((dispose) => {
+        onCleanup(dispose);
+        return fn(props, ...children);
+      });
+    });
+  };
+}
+
 export function isHTMLTagName(value: any): value is HTMLTagName {
   const validTags: HTMLTagName[] = [
     "div",
@@ -227,17 +266,4 @@ export function isHTMLTagName(value: any): value is HTMLTagName {
     "label",
   ];
   return typeof value === "string" && validTags.includes(value as HTMLTagName);
-}
-
-export function Component<P extends Props, C extends Child[]>(
-  fn: (props: P, ...children: C) => Node
-): (props: P, ...children: C) => Node {
-  return (props: P, ...children: C): Node => {
-    return unTrack(() => {
-      return createRoot((dispose) => {
-        onCleanup(dispose);
-        return fn(props, ...children);
-      });
-    });
-  };
 }
