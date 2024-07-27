@@ -1,3 +1,8 @@
+export const isASTNode = (value) => value &&
+    typeof value === "object" &&
+    "type" in value &&
+    "props" in value &&
+    "children" in value;
 export default class HTMLParser {
     tokens;
     current;
@@ -64,7 +69,7 @@ export default class HTMLParser {
             this.stack.push(element);
         }
         else if (this.stack.length > 0) {
-            this.stack[this.stack.length - 1].children.push(element);
+            this.appendChild(element);
         }
         else {
             this.stack.push(element);
@@ -120,6 +125,8 @@ export default class HTMLParser {
             throw new Error(this.prettifyError(`Unexpected closing tag </${tagName}>`));
         }
         const openNode = this.stack.pop();
+        if (!isASTNode(openNode))
+            throw new Error(this.prettifyError("Invalid HTML structure"));
         const nodeType = typeof openNode.type;
         if (nodeType === "function" ||
             (nodeType === "string" && openNode.type !== tagName)) {
@@ -127,7 +134,7 @@ export default class HTMLParser {
             throw new Error(this.prettifyError(`Mismatched closing tag. Expected </${expected}>, but got </${tagName}>`));
         }
         if (this.stack.length > 0) {
-            this.stack[this.stack.length - 1].children.push(openNode);
+            this.appendChild(openNode);
         }
         else {
             this.stack.push(openNode);
@@ -147,11 +154,13 @@ export default class HTMLParser {
             throw new Error(this.prettifyError(`Unexpected closing tag <//>`));
         }
         const openNode = this.stack.pop();
+        if (!isASTNode(openNode))
+            throw new Error(this.prettifyError("Invalid HTML structure"));
         if (typeof openNode.type !== "function") {
             throw new Error(this.prettifyError(`Mismatched closing tag. Expected Component, but got </${openNode.type}>`));
         }
         if (this.stack.length > 0) {
-            this.stack[this.stack.length - 1].children.push(openNode);
+            this.appendChild(openNode);
         }
         else {
             this.stack.push(openNode);
@@ -166,7 +175,10 @@ export default class HTMLParser {
         }
         text = text.trim();
         if (this.stack.length > 0 && text) {
-            this.stack[this.stack.length - 1].children.push(text);
+            this.appendChild(text);
+        }
+        else {
+            text && this.stack.push(text);
         }
     }
     parseInterpolation() {
@@ -175,7 +187,7 @@ export default class HTMLParser {
         const value = this.current.value;
         this.advance();
         if (this.stack.length > 0) {
-            this.stack[this.stack.length - 1].children.push(value);
+            this.appendChild(value);
         }
     }
     is(type) {
@@ -194,6 +206,12 @@ export default class HTMLParser {
             return true;
         }
         return false;
+    }
+    appendChild(child) {
+        const top = this.stack[this.stack.length - 1];
+        if (!isASTNode(top))
+            throw new Error(this.prettifyError(`Invalid HTML structure`));
+        top.children.push(child);
     }
     prettifyError(message) {
         const lines = this.template.split("\n");

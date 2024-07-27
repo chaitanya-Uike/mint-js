@@ -1,2 +1,2 @@
-import { Element } from "./parser";
-export declare function html(strings: TemplateStringsArray, ...values: any[]): Element;
+import { Child } from "../types";
+export declare function html(strings: TemplateStringsArray, ...values: any[]): Child;

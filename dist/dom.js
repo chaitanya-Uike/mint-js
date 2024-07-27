@@ -1,9 +1,9 @@
 import { effect, createRoot, unTrack, onCleanup } from "./core";
 import { isSignal } from "./signals";
+import { isFunction } from "./utils";
 const getProto = Object.getPrototypeOf;
 const OBJECT_PROTO = getProto({});
-const isFunc = (value) => typeof value === "function";
-const createElement = (name, ...args) => {
+export const createElement = (name, ...args) => {
     const [props, ...children] = args[0] && getProto(args[0]) === OBJECT_PROTO
         ? args
         : [{}, ...args];
@@ -73,7 +73,7 @@ function resolveChild(element, child) {
     if (isSignal(child)) {
         return handleSignalChild(element, child);
     }
-    if (isFunc(child)) {
+    if (isFunction(child)) {
         return handleFunctionChild(element, child);
     }
     if (Array.isArray(child)) {
@@ -88,7 +88,7 @@ function resolveChild(element, child) {
 }
 function handleProps(element, props) {
     Object.entries(props).forEach(([key, value]) => {
-        if (key.startsWith("on") && isFunc(value)) {
+        if (key.startsWith("on") && isFunction(value)) {
             const event = key.slice(2).toLowerCase();
             element.addEventListener(event, value);
             onCleanup(() => element.removeEventListener(event, value));
@@ -103,7 +103,7 @@ function handleProps(element, props) {
 }
 function handleStyleObject(element, styleObj) {
     Object.entries(styleObj).forEach(([prop, value]) => {
-        if (isSignal(value) || isFunc(value)) {
+        if (isSignal(value) || isFunction(value)) {
             effect(() => {
                 setStyleProperty(element.style, prop, value());
             });
@@ -124,7 +124,7 @@ function setStyleProperty(style, prop, value) {
 }
 function handleAttribute(element, key, value) {
     const setter = getPropSetter(element, key);
-    if (isSignal(value) || isFunc(value)) {
+    if (isSignal(value) || isFunction(value)) {
         effect(() => {
             setter ? setter(value()) : element.setAttribute(key, String(value()));
         });

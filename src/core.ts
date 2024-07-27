@@ -1,3 +1,5 @@
+import { isFunction } from "./utils";
+
 let currentObserver: Reactive | null = null;
 let newSources: Set<Reactive> | null = null;
 let effectsQueue: Reactive[] = [];
@@ -16,8 +18,6 @@ type CacheStale = CacheState.Check | CacheState.Dirty;
 type ComputeFn<T> = (prevVal?: T) => T;
 type Cleanup = () => void;
 
-const isFunc = (val: any): val is Function => typeof val === "function";
-
 export class Reactive<T = any> {
   private _value: T;
   private compute?: ComputeFn<T>;
@@ -29,7 +29,7 @@ export class Reactive<T = any> {
   cleanups: Cleanup[] | null = null;
 
   constructor(initValue: (() => T) | T, effect = false) {
-    this.compute = isFunc(initValue) ? initValue : undefined;
+    this.compute = isFunction(initValue) ? initValue : undefined;
     this._state = this.compute ? CacheState.Dirty : CacheState.Clean;
     this._value = this.compute ? (undefined as any) : initValue;
     this.effect = effect;
@@ -46,7 +46,7 @@ export class Reactive<T = any> {
   }
 
   set(newVal: ComputeFn<T> | T) {
-    const nextVal = isFunc(newVal) ? newVal(this._value) : newVal;
+    const nextVal = isFunction(newVal) ? newVal(this._value) : newVal;
     if (nextVal !== this._value) {
       this._value = nextVal;
       this.notifyObservers(CacheState.Dirty);

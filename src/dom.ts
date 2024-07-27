@@ -8,13 +8,12 @@ import type {
   TagsObject,
   Marker,
 } from "./types";
+import { isFunction } from "./utils";
 
 const getProto = Object.getPrototypeOf;
 const OBJECT_PROTO = getProto({});
 
-const isFunc = (value: any): value is Function => typeof value === "function";
-
-const createElement: CreateElement = (name, ...args) => {
+export const createElement: CreateElement = (name, ...args) => {
   const [props, ...children] =
     args[0] && getProto(args[0]) === OBJECT_PROTO
       ? (args as [Props, ...Child[]])
@@ -109,7 +108,7 @@ function resolveChild(element: Node, child: Child): [Marker, Marker] {
     return handleSignalChild(element, child);
   }
 
-  if (isFunc(child)) {
+  if (isFunction(child)) {
     return handleFunctionChild(element, child);
   }
 
@@ -127,7 +126,7 @@ function resolveChild(element: Node, child: Child): [Marker, Marker] {
 
 function handleProps(element: HTMLElement, props: Props): void {
   Object.entries(props).forEach(([key, value]) => {
-    if (key.startsWith("on") && isFunc(value)) {
+    if (key.startsWith("on") && isFunction(value)) {
       const event = key.slice(2).toLowerCase();
       element.addEventListener(event, value);
       onCleanup(() => element.removeEventListener(event, value));
@@ -141,7 +140,7 @@ function handleProps(element: HTMLElement, props: Props): void {
 
 function handleStyleObject(element: HTMLElement, styleObj: StyleObject): void {
   Object.entries(styleObj).forEach(([prop, value]) => {
-    if (isSignal(value) || isFunc(value)) {
+    if (isSignal(value) || isFunction(value)) {
       effect(() => {
         setStyleProperty(element.style, prop, value());
       });
@@ -170,7 +169,7 @@ function handleAttribute(
   value: unknown
 ): void {
   const setter = getPropSetter(element, key);
-  if (isSignal(value) || isFunc(value)) {
+  if (isSignal(value) || isFunction(value)) {
     effect(() => {
       setter ? setter(value()) : element.setAttribute(key, String(value()));
     });
@@ -200,7 +199,7 @@ export const tags = new Proxy(createElement, {
   },
 }) as unknown as TagsObject;
 
-type FnType = (...args: any[]) => Child;
+export type FnType = (...args: any[]) => Child;
 
 export function Component<T extends FnType>(
   fn: T

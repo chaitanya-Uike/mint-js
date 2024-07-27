@@ -1,10 +1,12 @@
+import { FnType } from "../dom";
+import { Props } from "../types";
 import { Token } from "./lexer";
-type Props = Record<string, any>;
-export type Element = {
-    type: string | Function;
+export type ASTNode = {
+    type: string | FnType;
     props: Props;
-    children: (Element | string | null | boolean | number)[];
+    children: (ASTNode | string | null | boolean | number)[];
 };
+export declare const isASTNode: (value: any) => value is ASTNode;
 export default class HTMLParser {
     private tokens;
     private current;
@@ -12,7 +14,7 @@ export default class HTMLParser {
     private template;
     constructor(lexer: Generator<Token>, template?: string);
     private advance;
-    parse(): Element;
+    parse(): ASTNode | string;
     private parseToken;
     private parseOpeningTag;
     private parseProps;
@@ -26,6 +28,6 @@ export default class HTMLParser {
     private is;
     private consume;
     private match;
+    private appendChild;
     private prettifyError;
 }
-export {};

@@ -1,17 +1,24 @@
+import { FnType } from "../dom";
+import { Props } from "../types";
 import { Token } from "./lexer";
 
-type Props = Record<string, any>;
-
-export type Element = {
-  type: string | Function;
+export type ASTNode = {
+  type: string | FnType;
   props: Props;
-  children: (Element | string | null | boolean | number)[];
+  children: (ASTNode | string | null | boolean | number)[];
 };
+
+export const isASTNode = (value: any): value is ASTNode =>
+  value &&
+  typeof value === "object" &&
+  "type" in value &&
+  "props" in value &&
+  "children" in value;
 
 export default class HTMLParser {
   private tokens: Generator<Token>;
   private current: Token | null;
-  private stack: Element[];
+  private stack: (ASTNode | string)[];
   private template: string;
 
   constructor(lexer: Generator<Token>, template: string = "") {
@@ -27,7 +34,7 @@ export default class HTMLParser {
     this.current = next.done ? null : next.value;
   }
 
-  parse(): Element {
+  parse(): ASTNode | string {
     while (this.current) this.parseToken();
     if (this.stack.length !== 1) {
       throw new Error(
@@ -68,9 +75,9 @@ export default class HTMLParser {
     if (!this.current)
       throw new Error(this.prettifyError("Unexpected end of input"));
 
-    let type: string | Function;
+    let type: string | FnType;
     if (this.is("INTERPOLATION")) {
-      type = this.current.value as Function;
+      type = this.current.value as FnType;
       this.advance();
     } else {
       type = this.parseWord();
@@ -80,12 +87,12 @@ export default class HTMLParser {
     const isSelfClosing = this.match("FORWARD_SLASH");
     this.consume("GREATER_THAN");
 
-    const element: Element = { type, props, children: [] };
+    const element: ASTNode = { type, props, children: [] };
 
     if (!isSelfClosing) {
       this.stack.push(element);
     } else if (this.stack.length > 0) {
-      this.stack[this.stack.length - 1].children.push(element);
+      this.appendChild(element);
     } else {
       this.stack.push(element);
     }
@@ -146,6 +153,10 @@ export default class HTMLParser {
     }
 
     const openNode = this.stack.pop()!;
+
+    if (!isASTNode(openNode))
+      throw new Error(this.prettifyError("Invalid HTML structure"));
+
     const nodeType = typeof openNode.type;
     if (
       nodeType === "function" ||
@@ -160,7 +171,7 @@ export default class HTMLParser {
     }
 
     if (this.stack.length > 0) {
-      this.stack[this.stack.length - 1].children.push(openNode);
+      this.appendChild(openNode);
     } else {
       this.stack.push(openNode);
     }
@@ -181,6 +192,10 @@ export default class HTMLParser {
       throw new Error(this.prettifyError(`Unexpected closing tag <//>`));
     }
     const openNode = this.stack.pop()!;
+
+    if (!isASTNode(openNode))
+      throw new Error(this.prettifyError("Invalid HTML structure"));
+
     if (typeof openNode.type !== "function") {
       throw new Error(
         this.prettifyError(
@@ -190,7 +205,7 @@ export default class HTMLParser {
     }
 
     if (this.stack.length > 0) {
-      this.stack[this.stack.length - 1].children.push(openNode);
+      this.appendChild(openNode);
     } else {
       this.stack.push(openNode);
     }
@@ -207,7 +222,9 @@ export default class HTMLParser {
     }
     text = text.trim();
     if (this.stack.length > 0 && text) {
-      this.stack[this.stack.length - 1].children.push(text);
+      this.appendChild(text);
+    } else {
+      text && this.stack.push(text);
     }
   }
 
@@ -216,7 +233,7 @@ export default class HTMLParser {
     const value = this.current.value;
     this.advance();
     if (this.stack.length > 0) {
-      this.stack[this.stack.length - 1].children.push(value);
+      this.appendChild(value);
     }
   }
 
@@ -246,6 +263,13 @@ export default class HTMLParser {
       return true;
     }
     return false;
+  }
+
+  private appendChild(child: ASTNode | string) {
+    const top = this.stack[this.stack.length - 1];
+    if (!isASTNode(top))
+      throw new Error(this.prettifyError(`Invalid HTML structure`));
+    top.children.push(child);
   }
 
   private prettifyError(message: string): string {

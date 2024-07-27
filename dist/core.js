@@ -1,3 +1,4 @@
+import { isFunction } from "./utils";
 let currentObserver = null;
 let newSources = null;
 let effectsQueue = [];
@@ -10,7 +11,6 @@ var CacheState;
     CacheState[CacheState["Dirty"] = 2] = "Dirty";
     CacheState[CacheState["Disposed"] = 3] = "Disposed";
 })(CacheState || (CacheState = {}));
-const isFunc = (val) => typeof val === "function";
 export class Reactive {
     _value;
     compute;
@@ -20,7 +20,7 @@ export class Reactive {
     observers = null;
     cleanups = null;
     constructor(initValue, effect = false) {
-        this.compute = isFunc(initValue) ? initValue : undefined;
+        this.compute = isFunction(initValue) ? initValue : undefined;
         this._state = this.compute ? CacheState.Dirty : CacheState.Clean;
         this._value = this.compute ? undefined : initValue;
         this.effect = effect;
@@ -40,7 +40,7 @@ export class Reactive {
         return this._value;
     }
     set(newVal) {
-        const nextVal = isFunc(newVal) ? newVal(this._value) : newVal;
+        const nextVal = isFunction(newVal) ? newVal(this._value) : newVal;
         if (nextVal !== this._value) {
             this._value = nextVal;
             this.notifyObservers(CacheState.Dirty);
