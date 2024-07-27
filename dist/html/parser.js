@@ -184,7 +184,6 @@ export default class HTMLParser {
             text += this.current.value;
             this.advance();
         }
-        text = text.trim();
         if (this.stack.length > 0 && text) {
             this.appendChild(text);
         }
