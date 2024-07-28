@@ -225,7 +225,7 @@ export class Root {
         }
     }
     removeChild(child) {
-        return this.children.delete(this);
+        return this.children.delete(child);
     }
 }
 export function createRoot(fn) {

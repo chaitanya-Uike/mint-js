@@ -254,7 +254,7 @@ export class Root<T = any> implements Disposable {
   }
 
   removeChild(child: Disposable) {
-    return this.children.delete(this);
+    return this.children.delete(child);
   }
 }
 
