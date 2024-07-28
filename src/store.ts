@@ -7,13 +7,13 @@ const RAW = Symbol("raw");
 
 type disposeFn = () => void;
 
-type Store<T extends object> = T & {
+export type Store<T extends object> = T & {
   [STORE]: Map<string, any>;
   [RAW]: T;
   [DISPOSE]: disposeFn;
 };
 
-function isStore(value: any): value is Store<any> {
+export function isStore(value: any): value is Store<any> {
   return typeof value === "object" && value !== null && STORE in value;
 }
 

@@ -1,3 +1,4 @@
+import { validTags } from "./constants";
 import { effect, createRoot, unTrack, onCleanup } from "./core";
 import { isSignal } from "./signals";
 import { isFunction } from "./utils";
@@ -6,6 +7,8 @@ export const createElement = (name, ...args) => {
     const [props, ...children] = args[0] && Object.prototype.toString.call(args[0]) === "[object Object]"
         ? args
         : [{}, ...args];
+    if (!isHTMLTagName(name))
+        throw new Error(`invalid node type ${name}`);
     const element = document.createElement(name);
     handleProps(element, props);
     appendChildren(element, children);
@@ -75,6 +78,7 @@ function resolveChild(element, child, currStart, currEnd) {
     }
     if (child instanceof Node) {
         if (currStart === child && currEnd === child) {
+            console.log("preserved");
             return [child, child];
         }
         else {
@@ -95,11 +99,15 @@ function resolveChild(element, child, currStart, currEnd) {
     throw new Error(`Unsupported child type: ${typeof child}`);
 }
 function handleArrayChild(element, children, currStart, currEnd, nextSibling) {
-    remove(element, currStart, currEnd);
+    let currMarker = currStart ?? currEnd;
+    const parent = currEnd?.parentNode ?? element;
     const fragment = document.createDocumentFragment();
-    const [start, end] = appendChildren(fragment, children);
-    insertBefore(element, fragment, nextSibling);
-    return [start, end];
+    for (const child of children) {
+        resolveChild(fragment, child, currMarker, currMarker);
+        currMarker = currMarker ? currMarker.nextSibling : null;
+    }
+    insertBefore(parent, fragment, nextSibling);
+    return [fragment.firstChild, fragment.lastChild];
 }
 function handleProps(element, props) {
     Object.entries(props).forEach(([key, value]) => {
@@ -180,29 +188,5 @@ export function Component(fn) {
     };
 }
 export function isHTMLTagName(value) {
-    const validTags = [
-        "div",
-        "span",
-        "p",
-        "a",
-        "img",
-        "button",
-        "input",
-        "h1",
-        "h2",
-        "h3",
-        "h4",
-        "h5",
-        "h6",
-        "ul",
-        "ol",
-        "li",
-        "table",
-        "tr",
-        "td",
-        "th",
-        "form",
-        "label",
-    ];
     return typeof value === "string" && validTags.includes(value);
 }

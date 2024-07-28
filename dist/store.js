@@ -3,7 +3,7 @@ import { isSignal, createSignalWithinScope } from "./signals";
 import { DISPOSE, NODE } from "./constants";
 const STORE = Symbol("store");
 const RAW = Symbol("raw");
-function isStore(value) {
+export function isStore(value) {
     return typeof value === "object" && value !== null && STORE in value;
 }
 function createReactive(value, scope) {

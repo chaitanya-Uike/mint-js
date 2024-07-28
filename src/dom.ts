@@ -112,6 +112,7 @@ function resolveChild(
 
   if (child instanceof Node) {
     if (currStart === child && currEnd === child) {
+      console.log("preserved");
       return [child, child];
     } else {
       remove(element, currStart, currEnd);
@@ -142,11 +143,15 @@ function handleArrayChild(
   currEnd: Marker,
   nextSibling: Node | null
 ): [Marker, Marker] {
-  remove(element, currStart, currEnd);
+  let currMarker = currStart ?? currEnd;
+  const parent = currEnd?.parentNode ?? element;
   const fragment = document.createDocumentFragment();
-  const [start, end] = appendChildren(fragment, children);
-  insertBefore(element, fragment, nextSibling);
-  return [start, end];
+  for (const child of children) {
+    resolveChild(fragment, child, currMarker, currMarker);
+    currMarker = currMarker ? currMarker.nextSibling : null;
+  }
+  insertBefore(parent, fragment, nextSibling);
+  return [fragment.firstChild, fragment.lastChild];
 }
 
 function handleProps(element: HTMLElement, props: Props): void {
