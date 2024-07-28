@@ -141,6 +141,8 @@ export class Reactive<T = any> implements Disposable {
   }
 
   dispose() {
+    if (this._state === CacheState.Disposed) return;
+    console.log("disposing", this);
     this._state = CacheState.Disposed;
     this.handleCleanup();
     if (this.sources) {
@@ -188,7 +190,7 @@ function scheduleEffect(effect: Reactive<any>) {
 
 export function effect(fn: () => any) {
   const node = new Reactive(fn, true);
-  node.get(); // Execute immediately
+  node.get();
 }
 
 // should only be called inside an effect
@@ -216,13 +218,12 @@ export function createRoot<T = any>(fn: (dispose: () => void) => T): T {
   const root: Root = {
     _children: [],
     dispose: function () {
-      children && this._children.push(...children);
+      children && this._children.push(...children) && (children = null);
       for (let i = this._children.length - 1; i >= 0; i--) {
         const child = this._children[i];
         child !== this && child.dispose();
       }
       this._children.length = 0;
-      children = null;
     },
   };
   (children ?? (children = [])).push(root);

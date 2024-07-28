@@ -1,4 +1,5 @@
 import { Reactive, effect, onCleanup } from "./core";
+import { $$DISPOSE_SIGNAL } from "./constants";
 
 const SIGNAL = Symbol("signal");
 
@@ -6,7 +7,7 @@ export interface Signal<T = any> {
   (): T;
   set(value: T | ((prevVal: T) => void)): void;
   [SIGNAL]: boolean;
-  node: Reactive<T>;
+  [$$DISPOSE_SIGNAL]: () => void;
 }
 
 export function signal<T>(initValue: T | (() => T)): Signal<T> {
@@ -16,7 +17,7 @@ export function signal<T>(initValue: T | (() => T)): Signal<T> {
   } as Signal<T>;
   signalFunction.set = node.set.bind(node);
   signalFunction[SIGNAL] = true;
-  signalFunction.node = node;
+  signalFunction[$$DISPOSE_SIGNAL] = node.dispose.bind(node);
 
   return signalFunction;
 }

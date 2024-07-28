@@ -121,6 +121,9 @@ export class Reactive {
         }
     }
     dispose() {
+        if (this._state === CacheState.Disposed)
+            return;
+        console.log("disposing", this);
         this._state = CacheState.Disposed;
         this.handleCleanup();
         if (this.sources) {
@@ -161,7 +164,7 @@ function scheduleEffect(effect) {
 }
 export function effect(fn) {
     const node = new Reactive(fn, true);
-    node.get(); // Execute immediately
+    node.get();
 }
 // should only be called inside an effect
 export function onCleanup(fn) {
@@ -185,13 +188,12 @@ export function createRoot(fn) {
     const root = {
         _children: [],
         dispose: function () {
-            children && this._children.push(...children);
+            children && this._children.push(...children) && (children = null);
             for (let i = this._children.length - 1; i >= 0; i--) {
                 const child = this._children[i];
                 child !== this && child.dispose();
             }
             this._children.length = 0;
-            children = null;
         },
     };
     (children ?? (children = [])).push(root);
