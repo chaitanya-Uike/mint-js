@@ -8,4 +8,5 @@ type Store<T extends object> = T & {
     [DISPOSE]: disposeFn;
 };
 export declare function createStore<T extends object>(initialState: T): Store<T>;
+export declare function unWrap<T extends object>(store: Store<T>): T;
 export {};

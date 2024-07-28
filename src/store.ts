@@ -115,3 +115,7 @@ export function createStore<T extends object>(initialState: T): Store<T> {
     return store;
   });
 }
+
+export function unWrap<T extends object>(store: Store<T>) {
+  return store[RAW];
+}

@@ -97,3 +97,6 @@ export function createStore(initialState) {
         return store;
     });
 }
+export function unWrap(store) {
+    return store[RAW];
+}

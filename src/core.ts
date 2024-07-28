@@ -146,7 +146,6 @@ export class Reactive<T = any> implements Disposable {
 
   dispose() {
     if (this._state === CacheState.Disposed) return;
-    console.log("disposing", this);
     this._state = CacheState.Disposed;
     this.handleCleanup();
     if (this.sources) {
