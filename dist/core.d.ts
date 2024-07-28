@@ -10,7 +10,7 @@ declare enum CacheState {
 type ComputeFn<T> = (prevVal?: T) => T;
 type Cleanup = () => void;
 export declare class Reactive<T = any> implements Disposable {
-    private _value;
+    private value;
     private compute?;
     private _state;
     private effect;

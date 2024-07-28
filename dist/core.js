@@ -12,7 +12,7 @@ var CacheState;
     CacheState[CacheState["Disposed"] = 3] = "Disposed";
 })(CacheState || (CacheState = {}));
 export class Reactive {
-    _value;
+    value;
     compute;
     _state;
     effect;
@@ -23,7 +23,7 @@ export class Reactive {
     constructor(initValue, effect = false) {
         this.compute = isFunction(initValue) ? initValue : undefined;
         this._state = this.compute ? CacheState.Dirty : CacheState.Clean;
-        this._value = this.compute ? undefined : initValue;
+        this.value = this.compute ? undefined : initValue;
         this.effect = effect;
         if (effect)
             scheduleEffect(this);
@@ -34,18 +34,18 @@ export class Reactive {
     }
     get() {
         if (this.state === CacheState.Disposed)
-            return this._value;
+            return this.value;
         if (!newSources)
             newSources = new Set();
         newSources.add(this);
         if (this.compute)
             this.updateIfRequired();
-        return this._value;
+        return this.value;
     }
     set(newVal) {
-        const nextVal = isFunction(newVal) ? newVal(this._value) : newVal;
-        if (nextVal !== this._value) {
-            this._value = nextVal;
+        const nextVal = isFunction(newVal) ? newVal(this.value) : newVal;
+        if (nextVal !== this.value) {
+            this.value = nextVal;
             this.notifyObservers(CacheState.Dirty);
         }
     }
@@ -67,16 +67,16 @@ export class Reactive {
     }
     update() {
         const context = suspendTracking(this);
-        const oldValue = this._value;
+        const oldValue = this.value;
         try {
             this.handleCleanup();
-            this._value = this.compute();
+            this.value = this.compute();
             this.updateGraph();
         }
         finally {
             resumeTracking(context);
         }
-        if (oldValue !== this._value && this.observers) {
+        if (oldValue !== this.value && this.observers) {
             for (const observer of this.observers) {
                 observer._state = CacheState.Dirty;
             }

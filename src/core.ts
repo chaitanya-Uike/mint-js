@@ -22,7 +22,7 @@ type ComputeFn<T> = (prevVal?: T) => T;
 type Cleanup = () => void;
 
 export class Reactive<T = any> implements Disposable {
-  private _value: T;
+  private value: T;
   private compute?: ComputeFn<T>;
   private _state: CacheState;
   private effect: boolean;
@@ -35,7 +35,7 @@ export class Reactive<T = any> implements Disposable {
   constructor(initValue: (() => T) | T, effect = false) {
     this.compute = isFunction(initValue) ? initValue : undefined;
     this._state = this.compute ? CacheState.Dirty : CacheState.Clean;
-    this._value = this.compute ? (undefined as any) : initValue;
+    this.value = this.compute ? (undefined as any) : initValue;
     this.effect = effect;
     if (effect) scheduleEffect(this);
     if (scope) {
@@ -45,17 +45,17 @@ export class Reactive<T = any> implements Disposable {
   }
 
   get(): T {
-    if (this.state === CacheState.Disposed) return this._value;
+    if (this.state === CacheState.Disposed) return this.value;
     if (!newSources) newSources = new Set();
     newSources.add(this);
     if (this.compute) this.updateIfRequired();
-    return this._value;
+    return this.value;
   }
 
   set(newVal: ComputeFn<T> | T) {
-    const nextVal = isFunction(newVal) ? newVal(this._value) : newVal;
-    if (nextVal !== this._value) {
-      this._value = nextVal;
+    const nextVal = isFunction(newVal) ? newVal(this.value) : newVal;
+    if (nextVal !== this.value) {
+      this.value = nextVal;
       this.notifyObservers(CacheState.Dirty);
     }
   }
@@ -79,15 +79,15 @@ export class Reactive<T = any> implements Disposable {
 
   private update() {
     const context = suspendTracking(this);
-    const oldValue = this._value;
+    const oldValue = this.value;
     try {
       this.handleCleanup();
-      this._value = this.compute!();
+      this.value = this.compute!();
       this.updateGraph();
     } finally {
       resumeTracking(context);
     }
-    if (oldValue !== this._value && this.observers) {
+    if (oldValue !== this.value && this.observers) {
       for (const observer of this.observers) {
         observer._state = CacheState.Dirty;
       }
