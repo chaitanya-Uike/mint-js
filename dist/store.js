@@ -1,6 +1,6 @@
 import { createRoot } from "./core";
 import { signal, isSignal } from "./signals";
-import { $$DISPOSE_SIGNAL } from "./constants";
+import { DISPOSE } from "./constants";
 const STORE = Symbol("store");
 const RAW = Symbol("raw");
 function isStore(value) {
@@ -18,7 +18,7 @@ export function createStore(initialState) {
         const handleNewValue = (key, newValue) => {
             const newReactive = createReactive(newValue);
             signalCache.set(key, newReactive);
-            disposals.set(key, newReactive[$$DISPOSE_SIGNAL].bind(newReactive));
+            disposals.set(key, newReactive[DISPOSE].bind(newReactive));
             return newReactive;
         };
         const store = new Proxy(initialState, {
@@ -77,9 +77,9 @@ export function createStore(initialState) {
                 if (typeof key === "symbol")
                     return Reflect.deleteProperty(target, key);
                 if (Object.prototype.hasOwnProperty.call(target, key)) {
+                    signalCache.delete(key);
                     disposals.get(key)?.();
                     disposals.delete(key);
-                    signalCache.delete(key);
                     return Reflect.deleteProperty(target, key);
                 }
                 return true;
@@ -87,7 +87,7 @@ export function createStore(initialState) {
         });
         store[STORE] = signalCache;
         store[RAW] = initialState;
-        store[$$DISPOSE_SIGNAL] = dispose;
+        store[DISPOSE] = dispose;
         return store;
     });
 }

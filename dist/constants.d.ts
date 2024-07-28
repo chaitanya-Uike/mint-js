@@ -1,1 +1,1 @@
-export declare const $$DISPOSE_SIGNAL: unique symbol;
+export declare const DISPOSE: unique symbol;

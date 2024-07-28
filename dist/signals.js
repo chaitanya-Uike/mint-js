@@ -1,5 +1,5 @@
 import { Reactive, effect, onCleanup } from "./core";
-import { $$DISPOSE_SIGNAL } from "./constants";
+import { DISPOSE } from "./constants";
 const SIGNAL = Symbol("signal");
 export function signal(initValue) {
     const node = new Reactive(initValue);
@@ -8,7 +8,7 @@ export function signal(initValue) {
     };
     signalFunction.set = node.set.bind(node);
     signalFunction[SIGNAL] = true;
-    signalFunction[$$DISPOSE_SIGNAL] = node.dispose.bind(node);
+    signalFunction[DISPOSE] = node.dispose.bind(node);
     return signalFunction;
 }
 export function isSignal(value) {

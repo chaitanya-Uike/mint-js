@@ -1,10 +1,10 @@
-import { $$DISPOSE_SIGNAL } from "./constants";
+import { DISPOSE } from "./constants";
 declare const SIGNAL: unique symbol;
 export interface Signal<T = any> {
     (): T;
     set(value: T | ((prevVal: T) => void)): void;
     [SIGNAL]: boolean;
-    [$$DISPOSE_SIGNAL]: () => void;
+    [DISPOSE]: () => void;
 }
 export declare function signal<T>(initValue: T | (() => T)): Signal<T>;
 export declare function isSignal(value: any): value is Signal<any>;
