@@ -1,3 +1,4 @@
+import { validTags } from "./constants";
 import { effect, createRoot, unTrack, onCleanup } from "./core";
 import { isSignal, Signal } from "./signals";
 import type {
@@ -18,12 +19,10 @@ export const createElement: CreateElement = (name, ...args) => {
     args[0] && Object.prototype.toString.call(args[0]) === "[object Object]"
       ? (args as [Props, ...Child[]])
       : ([{}, ...args] as [Props, ...Child[]]);
-
+  if (!isHTMLTagName(name)) throw new Error(`invalid node type ${name}`);
   const element = document.createElement(name);
-
   handleProps(element, props);
   appendChildren(element, children);
-
   return element;
 };
 
@@ -247,29 +246,5 @@ export function Component<P extends Props = {}>(
 }
 
 export function isHTMLTagName(value: any): value is HTMLTagName {
-  const validTags: HTMLTagName[] = [
-    "div",
-    "span",
-    "p",
-    "a",
-    "img",
-    "button",
-    "input",
-    "h1",
-    "h2",
-    "h3",
-    "h4",
-    "h5",
-    "h6",
-    "ul",
-    "ol",
-    "li",
-    "table",
-    "tr",
-    "td",
-    "th",
-    "form",
-    "label",
-  ];
   return typeof value === "string" && validTags.includes(value as HTMLTagName);
 }
