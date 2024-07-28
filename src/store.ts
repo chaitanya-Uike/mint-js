@@ -1,6 +1,6 @@
-import { createRoot } from "./core";
-import { signal, isSignal } from "./signals";
-import { DISPOSE } from "./constants";
+import { createRoot, getCurrentScope, Root } from "./core";
+import { isSignal, createSignalWithinScope, Signal } from "./signals";
+import { DISPOSE, NODE } from "./constants";
 
 const STORE = Symbol("store");
 const RAW = Symbol("raw");
@@ -18,22 +18,29 @@ function isStore(value: any): value is Store<any> {
 }
 
 function createReactive<T>(
-  value: T
-): T extends object ? Store<T> : ReturnType<typeof signal> {
+  value: T | Signal<T>,
+  scope: Root | null
+): T extends object ? Store<T> : Signal<T> {
+  if (isSignal(value)) {
+    value[NODE].updateScope(scope);
+    return value as any;
+  }
   return (
     typeof value === "object" && value !== null
       ? createStore(value as object)
-      : signal(value)
+      : createSignalWithinScope(value, scope)
   ) as any;
 }
 
 export function createStore<T extends object>(initialState: T): Store<T> {
   return createRoot((dispose) => {
+    const scope = getCurrentScope();
     const signalCache = new Map<string, any>();
     const disposals = new Map<string, disposeFn>();
 
     const handleNewValue = (key: string, newValue: any) => {
-      const newReactive = createReactive(newValue);
+      const newReactive = createReactive(newValue, scope);
+      disposals.get(key)?.(); //dispose old value if present
       signalCache.set(key, newReactive);
       disposals.set(key, newReactive[DISPOSE].bind(newReactive));
       return newReactive;
@@ -93,9 +100,9 @@ export function createStore<T extends object>(initialState: T): Store<T> {
       deleteProperty(target: T, key: string | symbol): boolean {
         if (typeof key === "symbol") return Reflect.deleteProperty(target, key);
         if (Object.prototype.hasOwnProperty.call(target, key)) {
-          signalCache.delete(key);
           disposals.get(key)?.();
           disposals.delete(key);
+          signalCache.delete(key);
           return Reflect.deleteProperty(target, key);
         }
         return true;

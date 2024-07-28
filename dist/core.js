@@ -3,7 +3,7 @@ let currentObserver = null;
 let newSources = null;
 let effectsQueue = [];
 let effectsScheduled = false;
-let children = null;
+let scope = null;
 var CacheState;
 (function (CacheState) {
     CacheState[CacheState["Clean"] = 0] = "Clean";
@@ -16,6 +16,7 @@ export class Reactive {
     compute;
     _state;
     effect;
+    _scope = null;
     sources = null;
     observers = null;
     cleanups = null;
@@ -26,8 +27,10 @@ export class Reactive {
         this.effect = effect;
         if (effect)
             scheduleEffect(this);
-        if (children)
-            children.push(this);
+        if (scope) {
+            this._scope = scope;
+            this._scope.append(this);
+        }
     }
     get() {
         if (this.state === CacheState.Disposed)
@@ -134,6 +137,11 @@ export class Reactive {
         this.sources = null;
         this.observers = null;
     }
+    updateScope(newScope) {
+        this._scope?.removeChild(this);
+        this._scope = newScope;
+        this._scope?.append(this);
+    }
 }
 function suspendTracking(newObserver = null) {
     const currContext = {
@@ -163,7 +171,7 @@ function scheduleEffect(effect) {
     }
 }
 export function effect(fn) {
-    const node = new Reactive(fn, true);
+    const node = createReactive(fn, true);
     node.get();
 }
 // should only be called inside an effect
@@ -184,26 +192,54 @@ export function unTrack(fn) {
         resumeTracking(context);
     }
 }
+export class Root {
+    children;
+    parentScope;
+    disposed = false;
+    fn;
+    constructor(fn) {
+        this.fn = fn;
+        this.children = new Set();
+        this.parentScope = scope;
+        this.parentScope?.append(this);
+    }
+    append(child) {
+        if (!this.disposed)
+            this.children.add(child);
+    }
+    dispose() {
+        if (this.disposed)
+            return;
+        for (const child of this.children)
+            child.dispose();
+        this.children.clear();
+        this.parentScope?.children.delete(this);
+        this.disposed = true;
+    }
+    execute() {
+        scope = this;
+        try {
+            return this.fn(this.dispose.bind(this));
+        }
+        finally {
+            scope = this.parentScope;
+        }
+    }
+    removeChild(child) {
+        return this.children.delete(this);
+    }
+}
 export function createRoot(fn) {
-    const root = {
-        _children: [],
-        dispose: function () {
-            children && this._children.push(...children) && (children = null);
-            for (let i = this._children.length - 1; i >= 0; i--) {
-                const child = this._children[i];
-                child !== this && child.dispose();
-            }
-            this._children.length = 0;
-        },
-    };
-    (children ?? (children = [])).push(root);
-    const prevChildren = children;
-    children = [];
-    try {
-        return fn(root.dispose.bind(root));
-    }
-    finally {
-        children && (root._children = [...children]);
-        children = prevChildren;
-    }
+    const root = new Root(fn);
+    return root.execute();
+}
+export function getCurrentScope() {
+    return scope;
+}
+export function createReactive(initValue, effect = false, parentScope = null) {
+    const prevScope = scope;
+    scope = parentScope;
+    const reactive = new Reactive(initValue, effect);
+    scope = prevScope;
+    return reactive;
 }

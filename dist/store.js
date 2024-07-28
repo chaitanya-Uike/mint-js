@@ -1,22 +1,28 @@
-import { createRoot } from "./core";
-import { signal, isSignal } from "./signals";
-import { DISPOSE } from "./constants";
+import { createRoot, getCurrentScope } from "./core";
+import { isSignal, createSignalWithinScope } from "./signals";
+import { DISPOSE, NODE } from "./constants";
 const STORE = Symbol("store");
 const RAW = Symbol("raw");
 function isStore(value) {
     return typeof value === "object" && value !== null && STORE in value;
 }
-function createReactive(value) {
+function createReactive(value, scope) {
+    if (isSignal(value)) {
+        value[NODE].updateScope(scope);
+        return value;
+    }
     return (typeof value === "object" && value !== null
         ? createStore(value)
-        : signal(value));
+        : createSignalWithinScope(value, scope));
 }
 export function createStore(initialState) {
     return createRoot((dispose) => {
+        const scope = getCurrentScope();
         const signalCache = new Map();
         const disposals = new Map();
         const handleNewValue = (key, newValue) => {
-            const newReactive = createReactive(newValue);
+            const newReactive = createReactive(newValue, scope);
+            disposals.get(key)?.(); //dispose old value if present
             signalCache.set(key, newReactive);
             disposals.set(key, newReactive[DISPOSE].bind(newReactive));
             return newReactive;
@@ -77,9 +83,9 @@ export function createStore(initialState) {
                 if (typeof key === "symbol")
                     return Reflect.deleteProperty(target, key);
                 if (Object.prototype.hasOwnProperty.call(target, key)) {
-                    signalCache.delete(key);
                     disposals.get(key)?.();
                     disposals.delete(key);
+                    signalCache.delete(key);
                     return Reflect.deleteProperty(target, key);
                 }
                 return true;

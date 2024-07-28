@@ -1,15 +1,8 @@
-import { Reactive, effect, onCleanup } from "./core";
-import { DISPOSE } from "./constants";
+import { Reactive, createReactive, effect, onCleanup } from "./core";
+import { DISPOSE, NODE } from "./constants";
 const SIGNAL = Symbol("signal");
 export function signal(initValue) {
-    const node = new Reactive(initValue);
-    const signalFunction = function () {
-        return node.get();
-    };
-    signalFunction.set = node.set.bind(node);
-    signalFunction[SIGNAL] = true;
-    signalFunction[DISPOSE] = node.dispose.bind(node);
-    return signalFunction;
+    return createSignalWithinScope(initValue);
 }
 export function isSignal(value) {
     return typeof value === "function" && value[SIGNAL] === true;
@@ -25,4 +18,15 @@ export function createEffect(fn) {
 export function createMemo(fn) {
     const node = new Reactive(fn);
     return node.get.bind(node);
+}
+export function createSignalWithinScope(initValue, scope = null) {
+    const node = createReactive(initValue, false, scope);
+    const signalFunction = function () {
+        return node.get();
+    };
+    signalFunction.set = node.set.bind(node);
+    signalFunction[SIGNAL] = true;
+    signalFunction[DISPOSE] = node.dispose.bind(node);
+    signalFunction[NODE] = node;
+    return signalFunction;
 }

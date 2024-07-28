@@ -7,7 +7,7 @@ let effectsScheduled = false;
 interface Disposable {
   dispose: () => void;
 }
-let children: Disposable[] | null = null;
+let scope: Root | null = null;
 
 enum CacheState {
   Clean,
@@ -26,6 +26,7 @@ export class Reactive<T = any> implements Disposable {
   private compute?: ComputeFn<T>;
   private _state: CacheState;
   private effect: boolean;
+  private _scope: Root | null = null;
   sources: Set<Reactive> | null = null;
   observers: Set<Reactive> | null = null;
 
@@ -37,7 +38,10 @@ export class Reactive<T = any> implements Disposable {
     this._value = this.compute ? (undefined as any) : initValue;
     this.effect = effect;
     if (effect) scheduleEffect(this);
-    if (children) children.push(this);
+    if (scope) {
+      this._scope = scope;
+      this._scope.append(this);
+    }
   }
 
   get(): T {
@@ -153,6 +157,12 @@ export class Reactive<T = any> implements Disposable {
     this.sources = null;
     this.observers = null;
   }
+
+  updateScope(newScope: Root | null) {
+    this._scope?.removeChild(this);
+    this._scope = newScope;
+    this._scope?.append(this);
+  }
 }
 
 function suspendTracking(newObserver: Reactive | null = null) {
@@ -189,7 +199,7 @@ function scheduleEffect(effect: Reactive<any>) {
 }
 
 export function effect(fn: () => any) {
-  const node = new Reactive(fn, true);
+  const node = createReactive(fn, true);
   node.get();
 }
 
@@ -210,29 +220,62 @@ export function unTrack<T>(fn: () => T): T {
   }
 }
 
-interface Root extends Disposable {
-  _children: Disposable[];
+export class Root<T = any> implements Disposable {
+  private children: Set<Disposable>;
+  private parentScope: Root | null;
+  private disposed: boolean = false;
+  private fn: (dispose: () => void) => T;
+
+  constructor(fn: (dispose: () => void) => T) {
+    this.fn = fn;
+    this.children = new Set();
+    this.parentScope = scope;
+    this.parentScope?.append(this);
+  }
+
+  append(child: Disposable) {
+    if (!this.disposed) this.children.add(child);
+  }
+
+  dispose() {
+    if (this.disposed) return;
+    for (const child of this.children) child.dispose();
+    this.children.clear();
+    this.parentScope?.children.delete(this);
+    this.disposed = true;
+  }
+
+  execute() {
+    scope = this;
+    try {
+      return this.fn(this.dispose.bind(this));
+    } finally {
+      scope = this.parentScope;
+    }
+  }
+
+  removeChild(child: Disposable) {
+    return this.children.delete(this);
+  }
 }
 
 export function createRoot<T = any>(fn: (dispose: () => void) => T): T {
-  const root: Root = {
-    _children: [],
-    dispose: function () {
-      children && this._children.push(...children) && (children = null);
-      for (let i = this._children.length - 1; i >= 0; i--) {
-        const child = this._children[i];
-        child !== this && child.dispose();
-      }
-      this._children.length = 0;
-    },
-  };
-  (children ?? (children = [])).push(root);
-  const prevChildren = children;
-  children = [];
-  try {
-    return fn(root.dispose.bind(root));
-  } finally {
-    children && (root._children = [...children]);
-    children = prevChildren;
-  }
+  const root = new Root(fn);
+  return root.execute();
+}
+
+export function getCurrentScope(): Root | null {
+  return scope;
+}
+
+export function createReactive<T>(
+  initValue: (() => T) | T,
+  effect = false,
+  parentScope: Root | null = null
+) {
+  const prevScope = scope;
+  scope = parentScope;
+  const reactive = new Reactive(initValue, effect);
+  scope = prevScope;
+  return reactive;
 }
