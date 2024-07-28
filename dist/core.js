@@ -242,3 +242,21 @@ export function createReactive(initValue, effect = false, parentScope = null) {
     scope = prevScope;
     return reactive;
 }
+export function createEffectWithIsolation(fn) {
+    const parentObserver = currentObserver;
+    const untrack = (func) => {
+        const prevObserver = currentObserver;
+        currentObserver = parentObserver;
+        try {
+            return func();
+        }
+        finally {
+            currentObserver = prevObserver;
+        }
+    };
+    const effect = () => {
+        fn(untrack);
+    };
+    const node = new Reactive(effect, true);
+    node.get();
+}

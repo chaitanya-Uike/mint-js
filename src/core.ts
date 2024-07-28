@@ -278,3 +278,27 @@ export function createReactive<T>(
   scope = prevScope;
   return reactive;
 }
+
+type UntrackFunction = <T>(fn: () => T) => T;
+export function createEffectWithIsolation(
+  fn: (untrack: UntrackFunction) => void
+): void {
+  const parentObserver = currentObserver;
+
+  const untrack: UntrackFunction = <T>(func: () => T): T => {
+    const prevObserver = currentObserver;
+    currentObserver = parentObserver;
+    try {
+      return func();
+    } finally {
+      currentObserver = prevObserver;
+    }
+  };
+
+  const effect = (): void => {
+    fn(untrack);
+  };
+
+  const node = new Reactive(effect, true);
+  node.get();
+}

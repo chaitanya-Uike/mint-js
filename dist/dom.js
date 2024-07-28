@@ -28,7 +28,8 @@ function appendChildren(parent, children) {
 function handleSignalChild(element, signal, currStart, currEnd) {
     let markers = [currStart, currEnd];
     effect(() => {
-        markers = resolveChild(element, signal(), markers[0], markers[1]);
+        const value = signal();
+        markers = resolveChild(element, value, markers[0], markers[1]);
     });
     return markers;
 }
@@ -55,9 +56,6 @@ function remove(element, start, end) {
         current = next;
     }
 }
-function insertBefore(parent, node, refNode) {
-    parent.insertBefore(node, refNode);
-}
 function resolveChild(element, child, currStart, currEnd) {
     const nextSibling = currEnd ? currEnd.nextSibling : null;
     if (child == null || typeof child === "boolean") {
@@ -72,18 +70,22 @@ function resolveChild(element, child, currStart, currEnd) {
         else {
             const textNode = document.createTextNode(String(child));
             remove(element, currStart, currEnd);
-            insertBefore(element, textNode, nextSibling);
+            element.insertBefore(textNode, nextSibling);
             return [textNode, textNode];
         }
     }
     if (child instanceof Node) {
         if (currStart === child && currEnd === child) {
-            console.log("preserved");
             return [child, child];
         }
         else {
-            remove(element, currStart, currEnd);
-            insertBefore(element, child, nextSibling);
+            if (currEnd && currStart === currEnd) {
+                element.replaceChild(child, currEnd);
+            }
+            else {
+                remove(element, currStart, currEnd);
+                element.insertBefore(child, nextSibling);
+            }
             return [child, child];
         }
     }
@@ -101,20 +103,26 @@ function resolveChild(element, child, currStart, currEnd) {
 function handleArrayChild(element, children, currStart, currEnd, nextSibling) {
     let currMarker = currStart ?? currEnd;
     const parent = currEnd?.parentNode ?? element;
-    const fragment = document.createDocumentFragment();
+    let newStart = null, newEnd = null;
     for (const child of children) {
-        resolveChild(fragment, child, currMarker, currMarker);
-        currMarker = currMarker ? currMarker.nextSibling : null;
+        const [start, end] = resolveChild(parent, child, currMarker, currMarker);
+        if (!newStart)
+            newStart = start;
+        newEnd = end;
+        currMarker = end ? end.nextSibling : null;
     }
-    insertBefore(parent, fragment, nextSibling);
-    return [fragment.firstChild, fragment.lastChild];
+    while (currMarker && currMarker !== nextSibling) {
+        const nextMarker = currMarker.nextSibling;
+        parent.removeChild(currMarker);
+        currMarker = nextMarker;
+    }
+    return [newStart, newEnd];
 }
 function handleProps(element, props) {
     Object.entries(props).forEach(([key, value]) => {
         if (key.startsWith("on") && isFunction(value)) {
             const event = key.slice(2).toLowerCase();
             element.addEventListener(event, value);
-            onCleanup(() => element.removeEventListener(event, value));
         }
         else if (key === "style" && typeof value === "object") {
             handleStyleObject(element, value);

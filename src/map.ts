@@ -1,6 +1,6 @@
 import { Store } from "./store";
-import { isSignal, Signal } from "./signals";
-import { effect, unTrack, onCleanup, createRoot } from "./core";
+import { isSignal, signal, Signal, createEffect } from "./signals";
+import { createRoot } from "./core";
 
 type MapCallback<T, U> = (item: T, index: number) => U;
 type CleanupFunction = () => void;
@@ -8,12 +8,12 @@ type CleanupFunction = () => void;
 export function reactiveMap<T, U>(
   list: Store<T[]> | Signal<T[]>,
   callback: MapCallback<T, U>
-): U[] {
-  let dispose: (CleanupFunction | null)[] = [];
-  let mapped: U[] = [];
+): Signal<U[]> {
+  let cleanups: (CleanupFunction | null)[] = [];
+  let mapped = signal<U[]>([]);
   let prevList: T[] = [];
 
-  effect(() => {
+  createEffect(() => {
     const currentList: T[] = isSignal(list) ? list() : list;
     const nextDispose: (CleanupFunction | null)[] = [];
     const nextMapped: U[] = [];
@@ -22,24 +22,25 @@ export function reactiveMap<T, U>(
       const prevIndex = prevList.findIndex((prevItem) => prevItem === item);
 
       if (prevIndex > -1) {
-        nextMapped[index] = mapped[prevIndex];
-        nextDispose[index] = dispose[prevIndex];
-        dispose[prevIndex] = null;
+        nextMapped[index] = mapped()[prevIndex];
+        nextDispose[index] = cleanups[prevIndex];
+        cleanups[prevIndex] = null;
       } else {
         createRoot((disposer) => {
           nextDispose[index] = disposer;
-          nextMapped[index] = unTrack(() => callback(item, index));
+          nextMapped[index] = callback(item, index);
         });
       }
     }
 
-    dispose = nextDispose;
-    mapped = nextMapped;
-    prevList = currentList;
+    cleanups = nextDispose;
+    prevList = [...currentList];
+    mapped.set(nextMapped);
 
-    onCleanup(() => {
-      for (const d of dispose) d?.();
-    });
+    return () => {
+      for (const cleanup of cleanups) cleanup?.();
+    };
   });
+
   return mapped;
 }
