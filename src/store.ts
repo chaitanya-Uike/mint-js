@@ -1,6 +1,6 @@
 import { createRoot } from "./core";
 import { signal, isSignal } from "./signals";
-import { $$DISPOSE_SIGNAL } from "./constants";
+import { DISPOSE } from "./constants";
 
 const STORE = Symbol("store");
 const RAW = Symbol("raw");
@@ -10,7 +10,7 @@ type disposeFn = () => void;
 type Store<T extends object> = T & {
   [STORE]: Map<string, any>;
   [RAW]: T;
-  [$$DISPOSE_SIGNAL]: disposeFn;
+  [DISPOSE]: disposeFn;
 };
 
 function isStore(value: any): value is Store<any> {
@@ -35,7 +35,7 @@ export function createStore<T extends object>(initialState: T): Store<T> {
     const handleNewValue = (key: string, newValue: any) => {
       const newReactive = createReactive(newValue);
       signalCache.set(key, newReactive);
-      disposals.set(key, newReactive[$$DISPOSE_SIGNAL].bind(newReactive));
+      disposals.set(key, newReactive[DISPOSE].bind(newReactive));
       return newReactive;
     };
 
@@ -93,9 +93,9 @@ export function createStore<T extends object>(initialState: T): Store<T> {
       deleteProperty(target: T, key: string | symbol): boolean {
         if (typeof key === "symbol") return Reflect.deleteProperty(target, key);
         if (Object.prototype.hasOwnProperty.call(target, key)) {
+          signalCache.delete(key);
           disposals.get(key)?.();
           disposals.delete(key);
-          signalCache.delete(key);
           return Reflect.deleteProperty(target, key);
         }
         return true;
@@ -104,7 +104,7 @@ export function createStore<T extends object>(initialState: T): Store<T> {
 
     store[STORE] = signalCache;
     store[RAW] = initialState;
-    store[$$DISPOSE_SIGNAL] = dispose;
+    store[DISPOSE] = dispose;
     return store;
   });
 }
