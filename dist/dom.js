@@ -105,30 +105,6 @@ function resolveChild(element, child, currStart, currEnd) {
     }
     throw new Error(`Unsupported child type: ${typeof child}`);
 }
-// function handleArrayChild(
-//   element: Node,
-//   children: Child[],
-//   currStart: Marker,
-//   currEnd: Marker
-// ): [Marker, Marker] {
-//   const nextSibling = currEnd ? currEnd.nextSibling : null;
-//   let currMarker = currStart ?? currEnd;
-//   const parent = currEnd?.parentNode ?? element;
-//   let newStart: Marker = null,
-//     newEnd: Marker = null;
-//   for (const child of children) {
-//     const [start, end] = resolveChild(parent, child, currMarker, currMarker);
-//     if (!newStart) newStart = start;
-//     newEnd = end;
-//     currMarker = end ? end.nextSibling : null;
-//   }
-//   while (currMarker && currMarker !== nextSibling) {
-//     const nextMarker = currMarker.nextSibling;
-//     parent.removeChild(currMarker);
-//     currMarker = nextMarker;
-//   }
-//   return [newStart, newEnd];
-// }
 function handleArrayChild(element, newChildren, currStart, currEnd) {
     const parent = currEnd?.parentNode ?? element;
     const oldChildren = [];
@@ -207,9 +183,7 @@ function handleArrayChild(element, newChildren, currStart, currEnd) {
         }
     }
     if (oldStartIdx > oldEndIdx) {
-        const refNode = newChildren[newEndIdx + 1] instanceof Node
-            ? newChildren[newEndIdx + 1]
-            : null;
+        const refNode = newChildren[newEndIdx + 1] instanceof Node ? newChildren[newEndIdx + 1] : null;
         for (let i = newStartIdx; i <= newEndIdx; i++) {
             const [start, end] = resolveChild(parent, newChildren[i], null, refNode);
             if (!newStart)
@@ -280,8 +254,7 @@ function handleStyleObject(element, styleObj) {
 }
 function setStyleProperty(style, prop, value) {
     if (prop in style) {
-        style[prop] =
-            typeof value === "number" && prop !== "zIndex" ? `${value}px` : value;
+        style[prop] = typeof value === "number" && prop !== "zIndex" ? `${value}px` : value;
     }
     else {
         style.setProperty(prop, value.toString());
@@ -299,10 +272,7 @@ function handleAttribute(element, key, value) {
     }
 }
 function getPropDescriptor(proto, key) {
-    return proto
-        ? Object.getOwnPropertyDescriptor(proto, key) ??
-            getPropDescriptor(getProto(proto), key)
-        : undefined;
+    return proto ? Object.getOwnPropertyDescriptor(proto, key) ?? getPropDescriptor(getProto(proto), key) : undefined;
 }
 function getPropSetter(element, key) {
     const setter = getPropDescriptor(getProto(element), key)?.set;
