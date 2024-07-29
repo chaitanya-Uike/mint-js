@@ -1,15 +1,7 @@
 import { validTags } from "./constants";
 import { effect, createRoot, unTrack, onCleanup } from "./core";
 import { isSignal, Signal } from "./signals";
-import type {
-  Child,
-  CreateElement,
-  Props,
-  StyleObject,
-  TagsObject,
-  Marker,
-  HTMLTagName,
-} from "./types";
+import type { Child, CreateElement, Props, StyleObject, TagsObject, Marker, HTMLTagName } from "./types";
 import { isFunction } from "./utils";
 
 const getProto = Object.getPrototypeOf;
@@ -37,12 +29,7 @@ function appendChildren(parent: Node, children: Child[]): [Marker, Marker] {
   return [start, end];
 }
 
-function handleSignalChild(
-  element: Node,
-  signal: Signal<Child>,
-  currStart: Marker,
-  currEnd: Marker
-): [Marker, Marker] {
+function handleSignalChild(element: Node, signal: Signal<Child>, currStart: Marker, currEnd: Marker): [Marker, Marker] {
   let markers: [Marker, Marker] = [currStart, currEnd];
   effect(() => {
     const value = signal();
@@ -51,12 +38,7 @@ function handleSignalChild(
   return markers;
 }
 
-function handleFunctionChild(
-  element: Node,
-  func: () => Child,
-  currStart: Marker,
-  currEnd: Marker
-): [Marker, Marker] {
+function handleFunctionChild(element: Node, func: () => Child, currStart: Marker, currEnd: Marker): [Marker, Marker] {
   let markers: [Marker, Marker] = [currStart, currEnd];
   effect(() => {
     const childValue = createRoot((dispose) => {
@@ -77,47 +59,47 @@ function remove(element: Node, start: Marker, end: Marker): void {
 
   while (current && current !== stopNode) {
     const next: Node | null = current.nextSibling;
+    console.log("removed", current);
     parent.removeChild(current);
     current = next;
   }
 }
 
-function resolveChild(
-  element: Node,
-  child: Child,
-  currStart: Marker,
-  currEnd: Marker
-): [Marker, Marker] {
+function resolveChild(element: Node, child: Child, currStart: Marker, currEnd: Marker): [Marker, Marker] {
   const nextSibling = currEnd ? currEnd.nextSibling : null;
 
   if (child == null || typeof child === "boolean") {
+    console.log("removed", child);
     remove(element, currStart, currEnd);
     return [null, null];
   }
 
   if (typeof child === "string" || typeof child === "number") {
-    if (currStart && currStart === currEnd && currStart instanceof Text) {
-      currStart.textContent = String(child);
-      return [currStart, currStart];
+    if (currStart === null && currEnd instanceof Text) {
+      currEnd.textContent = String(child);
+      return [null, currEnd];
     } else {
       const textNode = document.createTextNode(String(child));
       remove(element, currStart, currEnd);
       element.insertBefore(textNode, nextSibling);
-      return [textNode, textNode];
+      return [null, textNode];
     }
   }
 
   if (child instanceof Node) {
-    if (currStart === child && currEnd === child) {
-      return [child, child];
+    if (currStart === null && currEnd === child) {
+      console.log("preserved", child);
+      return [null, child];
     } else {
-      if (currEnd && currStart === currEnd) {
+      if (currStart === null && currEnd) {
+        console.log("replaced", child);
         element.replaceChild(child, currEnd);
       } else {
         remove(element, currStart, currEnd);
+        console.log("inserted", child);
         element.insertBefore(child, nextSibling);
       }
-      return [child, child];
+      return [null, child];
     }
   }
 
@@ -130,35 +112,134 @@ function resolveChild(
   }
 
   if (Array.isArray(child)) {
-    return handleArrayChild(element, child, currStart, currEnd, nextSibling);
+    return handleArrayChild(element, child, currStart, currEnd);
   }
 
   throw new Error(`Unsupported child type: ${typeof child}`);
 }
 
-function handleArrayChild(
-  element: Node,
-  children: Child[],
-  currStart: Marker,
-  currEnd: Marker,
-  nextSibling: Node | null
-): [Marker, Marker] {
-  let currMarker = currStart ?? currEnd;
+function handleArrayChild(element: Node, newChildren: Child[], currStart: Marker, currEnd: Marker): [Marker, Marker] {
   const parent = currEnd?.parentNode ?? element;
-  let newStart: Marker = null,
-    newEnd: Marker = null;
-  for (const child of children) {
-    const [start, end] = resolveChild(parent, child, currMarker, currMarker);
-    if (!newStart) newStart = start;
-    newEnd = end;
-    currMarker = end ? end.nextSibling : null;
+  const oldChildren: Node[] = [];
+  let node: Node | null = currStart ?? element.firstChild;
+  const boundary = currEnd ? currEnd.nextSibling : null;
+
+  // Collect old children
+  while (node && node !== boundary) {
+    oldChildren.push(node);
+    node = node.nextSibling;
   }
-  while (currMarker && currMarker !== nextSibling) {
-    const nextMarker = currMarker.nextSibling;
-    parent.removeChild(currMarker);
-    currMarker = nextMarker;
+
+  let oldStartIdx = 0;
+  let newStartIdx = 0;
+  let oldEndIdx = oldChildren.length - 1;
+  let newEndIdx = newChildren.length - 1;
+  let oldStartNode = oldChildren[0];
+  let newStartChild = newChildren[0];
+  let oldEndNode = oldChildren[oldEndIdx];
+  let newEndChild = newChildren[newEndIdx];
+  let newStart: Marker = null;
+  let newEnd: Marker = null;
+
+  const keyMap = new Map<string | number, number>();
+
+  while (oldStartIdx <= oldEndIdx && newStartIdx <= newEndIdx) {
+    if (!oldStartNode) {
+      oldStartNode = oldChildren[++oldStartIdx];
+    } else if (!oldEndNode) {
+      oldEndNode = oldChildren[--oldEndIdx];
+    } else if (isSameNode(oldStartNode, newStartChild)) {
+      [newStart, newEnd] = updateExistingChild(parent, oldStartNode, newStartChild, newStart, newEnd);
+      oldStartNode = oldChildren[++oldStartIdx];
+      newStartChild = newChildren[++newStartIdx];
+    } else if (isSameNode(oldEndNode, newEndChild)) {
+      [newStart, newEnd] = updateExistingChild(parent, oldEndNode, newEndChild, newStart, newEnd);
+      oldEndNode = oldChildren[--oldEndIdx];
+      newEndChild = newChildren[--newEndIdx];
+    } else if (isSameNode(oldStartNode, newEndChild)) {
+      [newStart, newEnd] = updateExistingChild(parent, oldStartNode, newEndChild, newStart, newEnd);
+      parent.insertBefore(oldStartNode, oldEndNode.nextSibling);
+      oldStartNode = oldChildren[++oldStartIdx];
+      newEndChild = newChildren[--newEndIdx];
+    } else if (isSameNode(oldEndNode, newStartChild)) {
+      [newStart, newEnd] = updateExistingChild(parent, oldEndNode, newStartChild, newStart, newEnd);
+      parent.insertBefore(oldEndNode, oldStartNode);
+      oldEndNode = oldChildren[--oldEndIdx];
+      newStartChild = newChildren[++newStartIdx];
+    } else {
+      if (!keyMap.size) {
+        for (let i = oldStartIdx; i <= oldEndIdx; i++) {
+          const key = getKey(oldChildren[i]);
+          if (key !== null) {
+            keyMap.set(key, i);
+          }
+        }
+      }
+      const key = getKey(newStartChild);
+      const oldIndex = key !== null ? keyMap.get(key) : undefined;
+      if (oldIndex === undefined) {
+        const [start, end] = resolveChild(parent, newStartChild, null, oldStartNode);
+        if (!newStart) newStart = start ?? end;
+        newEnd = end ?? newStart;
+        newStartChild = newChildren[++newStartIdx];
+      } else {
+        const nodeToMove = oldChildren[oldIndex];
+        [newStart, newEnd] = updateExistingChild(parent, nodeToMove, newStartChild, newStart, newEnd);
+        oldChildren[oldIndex] = null as any;
+        parent.insertBefore(nodeToMove, oldStartNode);
+        newStartChild = newChildren[++newStartIdx];
+      }
+    }
   }
+
+  if (oldStartIdx > oldEndIdx) {
+    const refNode = newChildren[newEndIdx + 1] instanceof Node ? (newChildren[newEndIdx + 1] as Node) : null;
+    for (let i = newStartIdx; i <= newEndIdx; i++) {
+      const [start, end] = resolveChild(parent, newChildren[i], null, refNode);
+      if (!newStart) newStart = start ?? end;
+      newEnd = end ?? newStart;
+    }
+  } else if (newStartIdx > newEndIdx) {
+    for (let i = oldStartIdx; i <= oldEndIdx; i++) {
+      if (oldChildren[i]) {
+        remove(parent, oldChildren[i], oldChildren[i]);
+      }
+    }
+  }
+
   return [newStart, newEnd];
+}
+
+function isSameNode(node: Node, child: Child): boolean {
+  if (!(child instanceof Node)) return false;
+  if (node.nodeType !== child.nodeType) return false;
+  if (node.nodeType === Node.ELEMENT_NODE) {
+    return (node as Element).tagName === (child as Element).tagName;
+  }
+  if (node.nodeType === Node.TEXT_NODE) {
+    return (node as Text).textContent === (child as Text).textContent;
+  }
+  return false;
+}
+
+function getKey(node: Node | Child): string | number | null {
+  if (node instanceof Element && node.hasAttribute("key")) {
+    return node.getAttribute("key")!;
+  }
+  return null;
+}
+
+function updateExistingChild(
+  parent: Node,
+  oldNode: Node,
+  newChild: Child,
+  currentStart: Marker,
+  currentEnd: Marker
+): [Marker, Marker] {
+  const [start, end] = resolveChild(parent, newChild, null, oldNode);
+  if (!currentStart) currentStart = start ?? end ?? oldNode;
+  currentEnd = end ?? start ?? oldNode;
+  return [currentStart, currentEnd];
 }
 
 function handleProps(element: HTMLElement, props: Props): void {
@@ -186,24 +267,15 @@ function handleStyleObject(element: HTMLElement, styleObj: StyleObject): void {
   });
 }
 
-function setStyleProperty(
-  style: CSSStyleDeclaration,
-  prop: string,
-  value: string | number
-): void {
+function setStyleProperty(style: CSSStyleDeclaration, prop: string, value: string | number): void {
   if (prop in style) {
-    (style as any)[prop] =
-      typeof value === "number" && prop !== "zIndex" ? `${value}px` : value;
+    (style as any)[prop] = typeof value === "number" && prop !== "zIndex" ? `${value}px` : value;
   } else {
     style.setProperty(prop, value.toString());
   }
 }
 
-function handleAttribute(
-  element: HTMLElement,
-  key: string,
-  value: unknown
-): void {
+function handleAttribute(element: HTMLElement, key: string, value: unknown): void {
   const setter = getPropSetter(element, key);
   if (isSignal(value) || isFunction(value)) {
     effect(() => {
@@ -214,14 +286,8 @@ function handleAttribute(
   }
 }
 
-function getPropDescriptor(
-  proto: PropertyDescriptor | undefined,
-  key: string
-): PropertyDescriptor | undefined {
-  return proto
-    ? Object.getOwnPropertyDescriptor(proto, key) ??
-        getPropDescriptor(getProto(proto), key)
-    : undefined;
+function getPropDescriptor(proto: PropertyDescriptor | undefined, key: string): PropertyDescriptor | undefined {
+  return proto ? Object.getOwnPropertyDescriptor(proto, key) ?? getPropDescriptor(getProto(proto), key) : undefined;
 }
 
 function getPropSetter(element: HTMLElement, key: string) {
