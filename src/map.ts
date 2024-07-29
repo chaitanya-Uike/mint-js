@@ -1,11 +1,11 @@
 import { Store } from "./store";
 import { isSignal, signal, Signal, createEffect } from "./signals";
-import { createRoot } from "./core";
+import { createRoot, unTrack } from "./core";
 
 type MapCallback<T, U> = (item: T, index: number) => U;
 type CleanupFunction = () => void;
 
-export function reactiveMap<T, U>(
+export function map<T, U>(
   list: Store<T[]> | Signal<T[]>,
   callback: MapCallback<T, U>
 ): Signal<U[]> {
@@ -23,7 +23,7 @@ export function reactiveMap<T, U>(
       const prevIndex = prevList.findIndex((prevItem) => prevItem === item);
 
       if (prevIndex > -1) {
-        nextMapped[index] = mapped()[prevIndex];
+        nextMapped[index] = unTrack(() => mapped()[prevIndex]);
         nextDispose[index] = cleanups[prevIndex];
         cleanups[prevIndex] = null;
       } else {

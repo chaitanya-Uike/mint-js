@@ -1,6 +1,6 @@
 import { isSignal, signal, createEffect } from "./signals";
-import { createRoot } from "./core";
-export function reactiveMap(list, callback) {
+import { createRoot, unTrack } from "./core";
+export function map(list, callback) {
     let cleanups = [];
     let mapped = signal([]);
     let prevList = [];
@@ -12,7 +12,7 @@ export function reactiveMap(list, callback) {
             const item = currentList[index];
             const prevIndex = prevList.findIndex((prevItem) => prevItem === item);
             if (prevIndex > -1) {
-                nextMapped[index] = mapped()[prevIndex];
+                nextMapped[index] = unTrack(() => mapped()[prevIndex]);
                 nextDispose[index] = cleanups[prevIndex];
                 cleanups[prevIndex] = null;
             }
