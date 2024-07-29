@@ -108,123 +108,46 @@ function resolveChild(element, child, currStart, currEnd) {
 function handleArrayChild(element, newChildren, currStart, currEnd) {
     const parent = currEnd?.parentNode ?? element;
     const oldChildren = [];
-    let node = currStart ?? element.firstChild;
+    let node = currStart ?? currEnd;
     const boundary = currEnd ? currEnd.nextSibling : null;
-    // Collect old children
     while (node && node !== boundary) {
         oldChildren.push(node);
         node = node.nextSibling;
     }
-    let oldStartIdx = 0;
-    let newStartIdx = 0;
-    let oldEndIdx = oldChildren.length - 1;
-    let newEndIdx = newChildren.length - 1;
-    let oldStartNode = oldChildren[0];
-    let newStartChild = newChildren[0];
-    let oldEndNode = oldChildren[oldEndIdx];
-    let newEndChild = newChildren[newEndIdx];
     let newStart = null;
     let newEnd = null;
-    const keyMap = new Map();
-    while (oldStartIdx <= oldEndIdx && newStartIdx <= newEndIdx) {
-        if (!oldStartNode) {
-            oldStartNode = oldChildren[++oldStartIdx];
+    const maxLen = Math.max(oldChildren.length, newChildren.length);
+    for (let i = 0; i < maxLen; i++) {
+        const oldChild = oldChildren[i];
+        const newChild = newChildren[i];
+        if (!oldChild && newChild) {
+            // New child added
+            const [start, end] = resolveChild(parent, newChild, null, null);
+            if (!newStart)
+                newStart = start ?? end;
+            newEnd = end ?? newStart;
         }
-        else if (!oldEndNode) {
-            oldEndNode = oldChildren[--oldEndIdx];
+        else if (oldChild && !newChild) {
+            // Old child removed
+            remove(parent, oldChild, oldChild);
         }
-        else if (isSameNode(oldStartNode, newStartChild)) {
-            [newStart, newEnd] = updateExistingChild(parent, oldStartNode, newStartChild, newStart, newEnd);
-            oldStartNode = oldChildren[++oldStartIdx];
-            newStartChild = newChildren[++newStartIdx];
-        }
-        else if (isSameNode(oldEndNode, newEndChild)) {
-            [newStart, newEnd] = updateExistingChild(parent, oldEndNode, newEndChild, newStart, newEnd);
-            oldEndNode = oldChildren[--oldEndIdx];
-            newEndChild = newChildren[--newEndIdx];
-        }
-        else if (isSameNode(oldStartNode, newEndChild)) {
-            [newStart, newEnd] = updateExistingChild(parent, oldStartNode, newEndChild, newStart, newEnd);
-            parent.insertBefore(oldStartNode, oldEndNode.nextSibling);
-            oldStartNode = oldChildren[++oldStartIdx];
-            newEndChild = newChildren[--newEndIdx];
-        }
-        else if (isSameNode(oldEndNode, newStartChild)) {
-            [newStart, newEnd] = updateExistingChild(parent, oldEndNode, newStartChild, newStart, newEnd);
-            parent.insertBefore(oldEndNode, oldStartNode);
-            oldEndNode = oldChildren[--oldEndIdx];
-            newStartChild = newChildren[++newStartIdx];
-        }
-        else {
-            if (!keyMap.size) {
-                for (let i = oldStartIdx; i <= oldEndIdx; i++) {
-                    const key = getKey(oldChildren[i]);
-                    if (key !== null) {
-                        keyMap.set(key, i);
-                    }
-                }
-            }
-            const key = getKey(newStartChild);
-            const oldIndex = key !== null ? keyMap.get(key) : undefined;
-            if (oldIndex === undefined) {
-                const [start, end] = resolveChild(parent, newStartChild, null, oldStartNode);
-                if (!newStart)
-                    newStart = start ?? end;
-                newEnd = end ?? newStart;
-                newStartChild = newChildren[++newStartIdx];
-            }
-            else {
-                const nodeToMove = oldChildren[oldIndex];
-                [newStart, newEnd] = updateExistingChild(parent, nodeToMove, newStartChild, newStart, newEnd);
-                oldChildren[oldIndex] = null;
-                parent.insertBefore(nodeToMove, oldStartNode);
-                newStartChild = newChildren[++newStartIdx];
-            }
-        }
-    }
-    if (oldStartIdx > oldEndIdx) {
-        const refNode = newChildren[newEndIdx + 1] instanceof Node ? newChildren[newEndIdx + 1] : null;
-        for (let i = newStartIdx; i <= newEndIdx; i++) {
-            const [start, end] = resolveChild(parent, newChildren[i], null, refNode);
+        else if (oldChild && newChild) {
+            // Update existing child
+            const [start, end] = updateExistingChild(parent, oldChild, newChild);
             if (!newStart)
                 newStart = start ?? end;
             newEnd = end ?? newStart;
         }
     }
-    else if (newStartIdx > newEndIdx) {
-        for (let i = oldStartIdx; i <= oldEndIdx; i++) {
-            if (oldChildren[i]) {
-                remove(parent, oldChildren[i], oldChildren[i]);
-            }
-        }
-    }
     return [newStart, newEnd];
 }
-function isSameNode(node, child) {
-    if (!(child instanceof Node))
-        return false;
-    if (node.nodeType !== child.nodeType)
-        return false;
-    if (node.nodeType === Node.ELEMENT_NODE) {
-        return node.tagName === child.tagName;
+function updateExistingChild(parent, oldNode, newChild) {
+    if (oldNode instanceof Element && newChild instanceof Element && oldNode.tagName === newChild.tagName) {
+        return [null, oldNode];
     }
-    if (node.nodeType === Node.TEXT_NODE) {
-        return node.textContent === child.textContent;
+    else {
+        return resolveChild(parent, newChild, null, oldNode);
     }
-    return false;
-}
-function getKey(node) {
-    if (node instanceof Element && node.hasAttribute("key")) {
-        return node.getAttribute("key");
-    }
-    return null;
-}
-function updateExistingChild(parent, oldNode, newChild, currentStart, currentEnd) {
-    const [start, end] = resolveChild(parent, newChild, null, oldNode);
-    if (!currentStart)
-        currentStart = start ?? end ?? oldNode;
-    currentEnd = end ?? start ?? oldNode;
-    return [currentStart, currentEnd];
 }
 function handleProps(element, props) {
     Object.entries(props).forEach(([key, value]) => {
