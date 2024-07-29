@@ -1,6 +1,6 @@
 import { isSignal, signal, createEffect } from "./signals";
 import { createRoot, unTrack } from "./core";
-export function map(list, callback) {
+export function reactiveMap(list, callback) {
     let cleanups = [];
     let mapped = signal([]);
     let prevList = [];
