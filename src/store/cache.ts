@@ -61,9 +61,7 @@ class ArrayCache implements SignalCache {
 
   private parseIndex(key: string | number): number {
     const index = Number(key);
-    return !isNaN(index) && index >= 0 && index === Math.floor(index)
-      ? index
-      : -1;
+    return !isNaN(index) && index >= 0 && index === Math.floor(index) ? index : -1;
   }
 
   *[Symbol.iterator](): Iterator<Signal | Store> {
@@ -108,7 +106,7 @@ class ObjectCache implements SignalCache {
 
   *[Symbol.iterator](): Iterator<Store | Signal> {
     for (const [_, entry] of this.cache) {
-      yield entry;
+      yield entry.value;
     }
   }
 }

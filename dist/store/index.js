@@ -59,16 +59,14 @@ export function createStore(initialState) {
             },
             set(target, key, newValue) {
                 if (key === STORE || key === SCOPE || key === DISPOSE)
-                    return true;
+                    true;
                 if (typeof key === "symbol")
                     return Reflect.set(target, key, newValue);
                 const result = Reflect.set(target, key, newValue);
                 if (Object.prototype.hasOwnProperty.call(target, key)) {
                     const existingValue = cache.get(key);
                     if (isSignal(existingValue)) {
-                        if (isSignal(newValue) ||
-                            isStore(newValue) ||
-                            (typeof newValue === "object" && newValue !== null)) {
+                        if (isSignal(newValue) || isStore(newValue) || (typeof newValue === "object" && newValue !== null)) {
                             handleNewValue(key, newValue);
                         }
                         else {
@@ -76,9 +74,7 @@ export function createStore(initialState) {
                         }
                     }
                     else if (isStore(existingValue)) {
-                        if (!isStore(newValue) &&
-                            typeof newValue === "object" &&
-                            newValue !== null) {
+                        if (!isStore(newValue) && typeof newValue === "object" && newValue !== null) {
                             const existingKeys = new Set(Object.keys(existingValue));
                             Object.entries(newValue).forEach(([subKey, subValue]) => {
                                 existingValue[subKey] = subValue;

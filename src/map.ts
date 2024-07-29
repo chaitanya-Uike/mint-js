@@ -5,10 +5,7 @@ import { createRoot, unTrack } from "./core";
 type MapCallback<T, U> = (item: T, index: number) => U;
 type CleanupFunction = () => void;
 
-export function reactiveMap<T, U>(
-  list: Store<T[]> | Signal<T[]>,
-  callback: MapCallback<T, U>
-): Signal<U[]> {
+export function reactiveMap<T, U>(list: Store<T[]> | Signal<T[]>, callback: MapCallback<T, U>): Signal<U[]> {
   let cleanups: (CleanupFunction | null)[] = [];
   let mapped = signal<U[]>([]);
   let prevList: T[] = [];

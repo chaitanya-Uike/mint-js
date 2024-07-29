@@ -37,9 +37,7 @@ class ArrayCache {
     }
     parseIndex(key) {
         const index = Number(key);
-        return !isNaN(index) && index >= 0 && index === Math.floor(index)
-            ? index
-            : -1;
+        return !isNaN(index) && index >= 0 && index === Math.floor(index) ? index : -1;
     }
     *[Symbol.iterator]() {
         for (let i = 0; i < this.cache.length; i++) {
@@ -75,7 +73,7 @@ class ObjectCache {
     }
     *[Symbol.iterator]() {
         for (const [_, entry] of this.cache) {
-            yield entry;
+            yield entry.value;
         }
     }
 }

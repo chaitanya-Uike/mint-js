@@ -52,7 +52,6 @@ function remove(element, start, end) {
     const stopNode = end ? end.nextSibling : null;
     while (current && current !== stopNode) {
         const next = current.nextSibling;
-        console.log("removed", current);
         parent.removeChild(current);
         current = next;
     }
@@ -60,7 +59,6 @@ function remove(element, start, end) {
 function resolveChild(element, child, currStart, currEnd) {
     const nextSibling = currEnd ? currEnd.nextSibling : null;
     if (child == null || typeof child === "boolean") {
-        console.log("removed", child);
         remove(element, currStart, currEnd);
         return [null, null];
     }
@@ -78,17 +76,14 @@ function resolveChild(element, child, currStart, currEnd) {
     }
     if (child instanceof Node) {
         if (currStart === null && currEnd === child) {
-            console.log("preserved", child);
             return [null, child];
         }
         else {
             if (currStart === null && currEnd) {
-                console.log("replaced", child);
                 element.replaceChild(child, currEnd);
             }
             else {
                 remove(element, currStart, currEnd);
-                console.log("inserted", child);
                 element.insertBefore(child, nextSibling);
             }
             return [null, child];
@@ -105,48 +100,68 @@ function resolveChild(element, child, currStart, currEnd) {
     }
     throw new Error(`Unsupported child type: ${typeof child}`);
 }
-function handleArrayChild(element, newChildren, currStart, currEnd) {
+function handleArrayChild(element, children, currStart, currEnd) {
+    const cache = [];
     const parent = currEnd?.parentNode ?? element;
-    const oldChildren = [];
-    let node = currStart ?? currEnd;
     const boundary = currEnd ? currEnd.nextSibling : null;
-    while (node && node !== boundary) {
-        oldChildren.push(node);
-        node = node.nextSibling;
+    let currNode = currStart ?? currEnd;
+    while (currNode && currNode !== boundary) {
+        cache.push(currNode);
+        currNode = currNode.nextSibling;
     }
     let newStart = null;
     let newEnd = null;
-    const maxLen = Math.max(oldChildren.length, newChildren.length);
-    for (let i = 0; i < maxLen; i++) {
-        const oldChild = oldChildren[i];
-        const newChild = newChildren[i];
-        if (!oldChild && newChild) {
-            // New child added
-            const [start, end] = resolveChild(parent, newChild, null, null);
+    for (let idx = 0; idx < children.length; idx++) {
+        const child = children[idx];
+        if (child instanceof Node) {
+            const position = cache.findIndex((c) => c === child);
+            if (position !== -1) {
+                if (position !== idx) {
+                    const node1 = cache[position];
+                    const node2 = cache[idx];
+                    swapNodes(node1, node2);
+                    cache[idx] = node1;
+                    cache[position] = node2;
+                }
+            }
+            else {
+                if (idx < cache.length) {
+                    parent.insertBefore(child, cache[idx]);
+                    cache.push(cache[idx]);
+                    cache[idx] = child;
+                }
+                else {
+                    parent.appendChild(child);
+                    cache[idx] = child;
+                }
+            }
             if (!newStart)
-                newStart = start ?? end;
-            newEnd = end ?? newStart;
+                newStart = cache[idx];
+            newEnd = cache[idx];
         }
-        else if (oldChild && !newChild) {
-            // Old child removed
-            remove(parent, oldChild, oldChild);
-        }
-        else if (oldChild && newChild) {
-            // Update existing child
-            const [start, end] = updateExistingChild(parent, oldChild, newChild);
+        else {
+            const existing = cache[idx] ?? null;
+            const [start, end] = resolveChild(parent, child, null, existing);
+            if (existing) {
+                cache.push(cache[idx]);
+            }
             if (!newStart)
-                newStart = start ?? end;
-            newEnd = end ?? newStart;
+                newStart = start;
+            newEnd = end;
         }
+    }
+    for (let i = children.length; i < cache.length; i++) {
+        parent.removeChild(cache[i]);
     }
     return [newStart, newEnd];
 }
-function updateExistingChild(parent, oldNode, newChild) {
-    if (oldNode instanceof Element && newChild instanceof Element && oldNode.tagName === newChild.tagName) {
-        return [null, oldNode];
-    }
-    else {
-        return resolveChild(parent, newChild, null, oldNode);
+function swapNodes(node1, node2) {
+    const parent = node1.parentNode;
+    const next1 = node1.nextSibling;
+    const next2 = node2.nextSibling;
+    if (parent) {
+        parent.insertBefore(node1, next2);
+        parent.insertBefore(node2, next1);
     }
 }
 function handleProps(element, props) {
