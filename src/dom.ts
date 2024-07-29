@@ -127,7 +127,7 @@ function handleArrayChild(element: Node, children: Child[], currStart: Marker, c
   for (let idx = 0; idx < children.length; idx++) {
     const child = children[idx];
     if (child instanceof Node) {
-      const position = cache.findIndex((c) => c === child);
+      const position = cache.indexOf(child);
       if (position !== -1) {
         if (position !== idx) {
           const node1 = cache[position];
