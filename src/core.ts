@@ -158,6 +158,7 @@ export class Reactive<T = any> implements Disposable {
   }
 
   updateScope(newScope: Root | null) {
+    if (newScope === this._scope) return;
     this._scope?.removeChild(this);
     this._scope = newScope;
     this._scope?.append(this);

@@ -8,7 +8,8 @@ export function reactiveMap(list, callback) {
         const currentList = isSignal(list) ? list() : list;
         const nextDispose = [];
         const nextMapped = [];
-        for (const [index, item] of currentList.entries()) {
+        for (let index = 0; index < currentList.length; index++) {
+            const item = currentList[index];
             const prevIndex = prevList.findIndex((prevItem) => prevItem === item);
             if (prevIndex > -1) {
                 nextMapped[index] = mapped()[prevIndex];

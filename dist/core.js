@@ -137,6 +137,8 @@ export class Reactive {
         this.observers = null;
     }
     updateScope(newScope) {
+        if (newScope === this._scope)
+            return;
         this._scope?.removeChild(this);
         this._scope = newScope;
         this._scope?.append(this);
