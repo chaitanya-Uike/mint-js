@@ -236,10 +236,16 @@ export function createRoot(fn) {
 export function getCurrentScope() {
     return scope;
 }
-export function createReactive(initValue, effect = false, parentScope = scope) {
-    const prevScope = scope;
-    scope = parentScope;
-    const reactive = new Reactive(initValue, effect);
-    scope = prevScope;
-    return reactive;
+export function createReactive(initValue, effect = false, parentScope) {
+    if (parentScope !== undefined) {
+        const prevScope = scope;
+        try {
+            scope = parentScope;
+            return new Reactive(initValue, effect);
+        }
+        finally {
+            scope = prevScope;
+        }
+    }
+    return new Reactive(initValue, effect);
 }

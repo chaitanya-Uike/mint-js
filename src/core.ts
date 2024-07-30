@@ -262,10 +262,15 @@ export function getCurrentScope(): Root | null {
   return scope;
 }
 
-export function createReactive<T>(initValue: (() => T) | T, effect = false, parentScope: Root | null = scope) {
-  const prevScope = scope;
-  scope = parentScope;
-  const reactive = new Reactive(initValue, effect);
-  scope = prevScope;
-  return reactive;
+export function createReactive<T>(initValue: (() => T) | T, effect = false, parentScope?: Root | null) {
+  if (parentScope !== undefined) {
+    const prevScope = scope;
+    try {
+      scope = parentScope;
+      return new Reactive(initValue, effect);
+    } finally {
+      scope = prevScope;
+    }
+  }
+  return new Reactive(initValue, effect);
 }
