@@ -59,6 +59,7 @@ function remove(element: Node, start: Marker, end: Marker): void {
 
   while (current && current !== stopNode) {
     const next: Node | null = current.nextSibling;
+    console.log("removed", current);
     parent.removeChild(current);
     current = next;
   }
@@ -74,11 +75,13 @@ function resolveChild(element: Node, child: Child, currStart: Marker, currEnd: M
 
   if (typeof child === "string" || typeof child === "number") {
     if (currStart === null && currEnd instanceof Text) {
+      console.log("update textcontent", currEnd);
       currEnd.textContent = String(child);
       return [null, currEnd];
     } else {
       const textNode = document.createTextNode(String(child));
       remove(element, currStart, currEnd);
+      console.log("insert text", textNode);
       element.insertBefore(textNode, nextSibling);
       return [null, textNode];
     }
@@ -86,12 +89,15 @@ function resolveChild(element: Node, child: Child, currStart: Marker, currEnd: M
 
   if (child instanceof Node) {
     if (currStart === null && currEnd === child) {
+      console.log("preserved");
       return [null, child];
     } else {
       if (currStart === null && currEnd) {
+        console.log("replaced");
         element.replaceChild(child, currEnd);
       } else {
         remove(element, currStart, currEnd);
+        console.log("insert", child);
         element.insertBefore(child, nextSibling);
       }
       return [null, child];
@@ -124,43 +130,58 @@ function handleArrayChild(element: Node, children: Child[], currStart: Marker, c
   }
   let newStart: Marker = null;
   let newEnd: Marker = null;
+
+  // Create a map to track the indices of children
+  const childIndices = new Map<Node, number>();
+  children.forEach((child, index) => {
+    if (child instanceof Node) {
+      childIndices.set(child, index);
+    }
+  });
+
+  let i = 0;
+  while (i < cache.length) {
+    const node = cache[i];
+    const childIndex = childIndices.get(node);
+
+    if (childIndex === undefined) {
+      // Node is not in the new children array, remove it
+      parent.removeChild(node);
+      cache.splice(i, 1);
+    } else {
+      // Node is in the new children array, keep it and update newStart/newEnd
+      if (!newStart) newStart = node;
+      newEnd = node;
+      i++;
+    }
+  }
+
+  // Add any new children that weren't in the original cache
   for (let idx = 0; idx < children.length; idx++) {
     const child = children[idx];
     if (child instanceof Node) {
-      const position = cache.indexOf(child);
-      if (position !== -1) {
-        if (position !== idx) {
-          const node1 = cache[position];
-          const node2 = cache[idx];
-          swapNodes(node1, node2);
-          cache[idx] = node1;
-          cache[position] = node2;
-        }
-      } else {
-        if (idx < cache.length) {
-          parent.insertBefore(child, cache[idx]);
-          cache.push(cache[idx]);
-          cache[idx] = child;
-        } else {
-          parent.appendChild(child);
-          cache[idx] = child;
-        }
+      if (idx >= cache.length) {
+        parent.appendChild(child);
+        cache.push(child);
+        if (!newStart) newStart = child;
+        newEnd = child;
+      } else if (cache[idx] !== child) {
+        parent.insertBefore(child, cache[idx]);
+        cache.splice(idx, 0, child);
+        if (!newStart) newStart = child;
+        newEnd = child;
       }
-      if (!newStart) newStart = cache[idx];
-      newEnd = cache[idx];
     } else {
       const existing = cache[idx] ?? null;
       const [start, end] = resolveChild(parent, child, null, existing);
-      if (existing) {
-        cache.push(cache[idx]);
+      if (!existing) {
+        cache.splice(idx, 0, start as Node);
       }
       if (!newStart) newStart = start;
       newEnd = end;
     }
   }
-  for (let i = children.length; i < cache.length; i++) {
-    parent.removeChild(cache[i]);
-  }
+
   return [newStart, newEnd];
 }
 
@@ -169,6 +190,7 @@ function swapNodes(node1: Node, node2: Node) {
   const next1 = node1.nextSibling;
   const next2 = node2.nextSibling;
   if (parent) {
+    console.log("swapped", node1, node2);
     parent.insertBefore(node1, next2);
     parent.insertBefore(node2, next1);
   }
