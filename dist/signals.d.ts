@@ -12,5 +12,5 @@ export declare function signal<T>(initValue: T | (() => T)): Signal<T>;
 export declare function isSignal(value: any): value is Signal<any>;
 export declare function createEffect(fn: () => any | (() => void)): void;
 export declare function createMemo<T>(fn: () => T): () => T;
-export declare function createSignalWithinScope<T>(initValue: T | (() => T), scope?: Root | null): Signal<T>;
+export declare function createSignalWithinScope<T>(initValue: T | (() => T), scope?: Root): Signal<T>;
 export {};

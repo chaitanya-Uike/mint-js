@@ -23,12 +23,14 @@ export function reactiveMap(list, callback) {
                 });
             }
         }
-        cleanups = nextDispose;
-        prevList = [...currentList];
         mapped.set(nextMapped);
+        prevList = [...currentList];
         return () => {
-            for (const cleanup of cleanups)
-                cleanup?.();
+            for (let i = 0; i < cleanups.length; i++) {
+                console.log("cleanup", cleanups[i]);
+                cleanups[i]?.();
+            }
+            cleanups = nextDispose;
         };
     });
     return mapped;

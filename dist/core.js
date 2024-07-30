@@ -114,8 +114,7 @@ export class Reactive {
         }
     }
     stale(newState) {
-        if (this._state === CacheState.Clean ||
-            (this._state === CacheState.Check && newState === CacheState.Dirty)) {
+        if (this._state === CacheState.Clean || (this._state === CacheState.Check && newState === CacheState.Dirty)) {
             if (this._state === CacheState.Clean && this.effect) {
                 scheduleEffect(this);
             }
@@ -124,6 +123,7 @@ export class Reactive {
         }
     }
     dispose() {
+        console.log("disposing", this);
         if (this._state === CacheState.Disposed)
             return;
         this._state = CacheState.Disposed;
@@ -209,6 +209,7 @@ export class Root {
             this.children.add(child);
     }
     dispose() {
+        console.log("disposing root", this);
         if (this.disposed)
             return;
         for (const child of this.children)
@@ -237,28 +238,10 @@ export function createRoot(fn) {
 export function getCurrentScope() {
     return scope;
 }
-export function createReactive(initValue, effect = false, parentScope = null) {
+export function createReactive(initValue, effect = false, parentScope = scope) {
     const prevScope = scope;
     scope = parentScope;
     const reactive = new Reactive(initValue, effect);
     scope = prevScope;
     return reactive;
-}
-export function createEffectWithIsolation(fn) {
-    const parentObserver = currentObserver;
-    const untrack = (func) => {
-        const prevObserver = currentObserver;
-        currentObserver = parentObserver;
-        try {
-            return func();
-        }
-        finally {
-            currentObserver = prevObserver;
-        }
-    };
-    const effect = () => {
-        fn(untrack);
-    };
-    const node = new Reactive(effect, true);
-    node.get();
 }

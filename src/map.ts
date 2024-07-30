@@ -31,12 +31,14 @@ export function reactiveMap<T, U>(list: Store<T[]> | Signal<T[]>, callback: MapC
       }
     }
 
-    cleanups = nextDispose;
-    prevList = [...currentList];
     mapped.set(nextMapped);
+    prevList = [...currentList];
 
     return () => {
-      for (const cleanup of cleanups) cleanup?.();
+      for (let i = 0; i < cleanups.length; i++) {
+        cleanups[i]?.();
+      }
+      cleanups = nextDispose;
     };
   });
 

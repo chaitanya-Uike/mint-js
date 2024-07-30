@@ -19,7 +19,7 @@ export function createMemo(fn) {
     const node = new Reactive(fn);
     return node.get.bind(node);
 }
-export function createSignalWithinScope(initValue, scope = null) {
+export function createSignalWithinScope(initValue, scope) {
     const node = createReactive(initValue, false, scope);
     const signalFunction = function () {
         return node.get();

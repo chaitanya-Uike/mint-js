@@ -1,6 +1,6 @@
 import { DISPOSE, NODE } from "../constants";
 import { createRoot, getCurrentScope, Root } from "../core";
-import { createSignalWithinScope, isSignal } from "../signals";
+import { createSignalWithinScope, isSignal, Signal, signal } from "../signals";
 import { getSignalCache, SignalCache } from "./cache";
 
 const STORE = Symbol("store");
@@ -27,15 +27,18 @@ function updateStoreScope(store: Store, scope: Root | null) {
   store[SCOPE] = scope;
 }
 
-function createReactive(value: any, scope: Root | null) {
+type ReactiveValue = Signal | Store | any;
+function createReactive<T>(value: T, scope: Root): ReactiveValue {
   if (isSignal(value)) {
     value[NODE].updateScope(scope);
     return value;
   }
+
   if (isStore(value)) {
     updateStoreScope(value, scope);
     return value;
   }
+
   return typeof value === "object" && value !== null
     ? createStore(value as object)
     : createSignalWithinScope(value, scope);
@@ -43,7 +46,7 @@ function createReactive(value: any, scope: Root | null) {
 
 export function createStore<T extends object>(initialState: T): Store<T> {
   return createRoot((dispose) => {
-    const scope = getCurrentScope();
+    const scope = getCurrentScope()!;
     const cache = getSignalCache(initialState);
 
     const handleNewValue = (key: string | number, newValue: any) => {

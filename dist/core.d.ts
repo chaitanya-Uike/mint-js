@@ -49,6 +49,4 @@ export declare class Root<T = any> implements Disposable {
 export declare function createRoot<T = any>(fn: (dispose: () => void) => T): T;
 export declare function getCurrentScope(): Root | null;
 export declare function createReactive<T>(initValue: (() => T) | T, effect?: boolean, parentScope?: Root | null): Reactive<T>;
-type UntrackFunction = <T>(fn: () => T) => T;
-export declare function createEffectWithIsolation(fn: (untrack: UntrackFunction) => void): void;
 export {};

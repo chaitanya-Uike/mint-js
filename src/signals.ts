@@ -33,10 +33,7 @@ export function createMemo<T>(fn: () => T): () => T {
   return node.get.bind(node);
 }
 
-export function createSignalWithinScope<T>(
-  initValue: T | (() => T),
-  scope: Root | null = null
-) {
+export function createSignalWithinScope<T>(initValue: T | (() => T), scope?: Root) {
   const node = createReactive(initValue, false, scope);
   const signalFunction = function (): T {
     return node.get();

@@ -132,10 +132,7 @@ export class Reactive<T = any> implements Disposable {
   }
 
   private stale(newState: CacheStale) {
-    if (
-      this._state === CacheState.Clean ||
-      (this._state === CacheState.Check && newState === CacheState.Dirty)
-    ) {
+    if (this._state === CacheState.Clean || (this._state === CacheState.Check && newState === CacheState.Dirty)) {
       if (this._state === CacheState.Clean && this.effect) {
         scheduleEffect(this);
       }
@@ -175,10 +172,7 @@ function suspendTracking(newObserver: Reactive | null = null) {
   return currContext;
 }
 
-function resumeTracking(context: {
-  currentObserver: Reactive | null;
-  newSources: Set<Reactive> | null;
-}) {
+function resumeTracking(context: { currentObserver: Reactive | null; newSources: Set<Reactive> | null }) {
   ({ currentObserver, newSources: newSources } = context);
 }
 
@@ -268,38 +262,10 @@ export function getCurrentScope(): Root | null {
   return scope;
 }
 
-export function createReactive<T>(
-  initValue: (() => T) | T,
-  effect = false,
-  parentScope: Root | null = null
-) {
+export function createReactive<T>(initValue: (() => T) | T, effect = false, parentScope: Root | null = scope) {
   const prevScope = scope;
   scope = parentScope;
   const reactive = new Reactive(initValue, effect);
   scope = prevScope;
   return reactive;
-}
-
-type UntrackFunction = <T>(fn: () => T) => T;
-export function createEffectWithIsolation(
-  fn: (untrack: UntrackFunction) => void
-): void {
-  const parentObserver = currentObserver;
-
-  const untrack: UntrackFunction = <T>(func: () => T): T => {
-    const prevObserver = currentObserver;
-    currentObserver = parentObserver;
-    try {
-      return func();
-    } finally {
-      currentObserver = prevObserver;
-    }
-  };
-
-  const effect = (): void => {
-    fn(untrack);
-  };
-
-  const node = new Reactive(effect, true);
-  node.get();
 }
