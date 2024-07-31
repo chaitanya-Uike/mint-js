@@ -55,22 +55,22 @@ export function createStore<T extends object>(initialState: T): Store<T> {
     };
 
     const store = new Proxy(initialState, {
-      get(target: T, key: string | symbol) {
+      get(target: T, key: string | symbol, receiver) {
         if (key === STORE) return cache;
         if (key === DISPOSE) return dispose;
         if (key === SCOPE) return scope;
-        if (typeof key === "symbol") return Reflect.get(target, key);
+        if (typeof key === "symbol") return Reflect.get(target, key, receiver);
         if (Object.prototype.hasOwnProperty.call(target, key)) {
           if (!cache.has(key)) handleNewValue(key, target[key as keyof T]);
           const cachedValue = cache.get(key);
           return isSignal(cachedValue) ? cachedValue() : cachedValue;
         }
-        return Reflect.get(target, key);
+        return Reflect.get(target, key, receiver);
       },
-      set(target: T, key: string | symbol, newValue: any): boolean {
+      set(target: T, key: string | symbol, newValue: any, receiver): boolean {
         if (key === STORE || key === SCOPE || key === DISPOSE) true;
-        if (typeof key === "symbol") return Reflect.set(target, key, newValue);
-        const result = Reflect.set(target, key, newValue);
+        if (typeof key === "symbol") return Reflect.set(target, key, newValue, receiver);
+        const result = Reflect.set(target, key, newValue, receiver);
         if (Object.prototype.hasOwnProperty.call(target, key)) {
           const existingValue = cache.get(key);
           if (isSignal(existingValue)) {

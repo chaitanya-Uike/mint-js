@@ -86,10 +86,22 @@ function isSpecialChar(char) {
 function isWhitespace(char) {
     return [" ", "\n", "\t", "\r"].includes(char);
 }
+export const tokenMap = {
+    LESS_THAN: "<",
+    GREATER_THAN: ">",
+    FORWARD_SLASH: "/",
+    EQUALS: "=",
+    WHITE_SPACE: " ",
+    TEXT: "text",
+    QUOTE: '"',
+    INTERPOLATION: "${...}",
+    PERIOD: ".",
+};
 const SpecialTokens = {
     "<": "LESS_THAN",
     ">": "GREATER_THAN",
     "/": "FORWARD_SLASH",
     "=": "EQUALS",
     '"': "QUOTE",
+    ".": "PERIOD",
 };

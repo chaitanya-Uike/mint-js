@@ -1,8 +1,6 @@
-export const isASTNode = (value) => value &&
-    typeof value === "object" &&
-    "type" in value &&
-    "props" in value &&
-    "children" in value;
+import { isFunction } from "../utils";
+import { tokenMap } from "./lexer";
+export const isASTNode = (value) => value && typeof value === "object" && "type" in value && "props" in value && "children" in value;
 export default class HTMLParser {
     tokens;
     current;
@@ -81,21 +79,29 @@ export default class HTMLParser {
     }
     parseProps() {
         const props = {};
-        while (this.current &&
-            this.current.type !== "GREATER_THAN" &&
-            this.current.type !== "FORWARD_SLASH") {
+        while (this.current && this.current.type !== "GREATER_THAN" && this.current.type !== "FORWARD_SLASH") {
             this.skipWhiteSpace();
-            const name = this.parseWord();
-            this.skipWhiteSpace();
-            let value = true;
-            if (this.match("EQUALS")) {
-                this.skipWhiteSpace();
-                value = this.parseAttributeValue();
+            if (this.match("PERIOD")) {
+                this.consume("PERIOD");
+                this.consume("PERIOD");
+                const value = this.consume("INTERPOLATION").value;
+                if (typeof value !== "object" || value == null || Array.isArray(value))
+                    throw new Error(this.prettifyError("Object expected"));
+                Object.assign(props, value);
             }
-            if (!name)
-                this.advance();
-            else
-                props[name] = value;
+            else {
+                const name = this.parseWord();
+                this.skipWhiteSpace();
+                let value = true;
+                if (this.match("EQUALS")) {
+                    this.skipWhiteSpace();
+                    value = this.parseAttributeValue();
+                }
+                if (!name)
+                    this.advance();
+                else
+                    props[name] = value;
+            }
             this.skipWhiteSpace();
         }
         return props;
@@ -128,9 +134,19 @@ export default class HTMLParser {
             this.parseCustomElementClosingTag();
             return;
         }
-        const tagName = this.parseWord();
+        let tag;
+        if (this.is("INTERPOLATION")) {
+            const value = this.consume("INTERPOLATION").value;
+            if (!isFunction(value))
+                throw new Error(this.prettifyError(`Expected a function recieved ${typeof value}`));
+            tag = value;
+        }
+        else {
+            tag = this.parseWord();
+        }
         this.skipWhiteSpace();
         this.consume("GREATER_THAN");
+        const tagName = isFunction(tag) ? tag.name : tag;
         if (this.stack.length === 0) {
             throw new Error(this.prettifyError(`Unexpected closing tag </${tagName}>`));
         }
@@ -138,10 +154,11 @@ export default class HTMLParser {
         if (!isASTNode(openNode))
             throw new Error(this.prettifyError("Invalid HTML structure"));
         const nodeType = typeof openNode.type;
-        if (nodeType === "function" ||
-            (nodeType === "string" && openNode.type !== tagName)) {
-            const expected = nodeType === "function" ? "/" : openNode.type;
-            throw new Error(this.prettifyError(`Mismatched closing tag. Expected </${expected}>, but got </${tagName}>`));
+        if (isFunction(openNode.type) && tagName !== openNode.type.name) {
+            throw new Error(this.prettifyError(`Mismatched closing tag. Expected either <//> or </\${${openNode.type.name}}>`));
+        }
+        else if (nodeType === "string" && openNode.type !== tagName) {
+            throw new Error(this.prettifyError(`Mismatched closing tag. Expected </${openNode.type}>, but got </${tagName}>`));
         }
         if (this.stack.length > 0) {
             this.appendChild(openNode);
@@ -179,8 +196,7 @@ export default class HTMLParser {
     }
     parseText() {
         let text = "";
-        while (this.current &&
-            ["TEXT", "WHITE_SPACE", "QUOTE"].includes(this.current.type)) {
+        while (this.current && ["TEXT", "WHITE_SPACE", "QUOTE"].includes(this.current.type)) {
             text += this.current.value;
             this.advance();
         }
@@ -206,10 +222,12 @@ export default class HTMLParser {
     }
     consume(type) {
         if (!this.current)
-            throw new Error(this.prettifyError(`Expected token type ${type}, but reached end of input`));
+            throw new Error(this.prettifyError(`Expected token type '${tokenMap[type]}', but reached end of input`));
         if (this.current.type !== type)
-            throw new Error(this.prettifyError(`Expected token ${type}, but got ${this.current.type}`));
+            throw new Error(this.prettifyError(`Expected token '${tokenMap[type]}', but got '${tokenMap[this.current.type]}'`));
+        const token = this.current;
         this.advance();
+        return token;
     }
     match(type) {
         if (this.is(type)) {

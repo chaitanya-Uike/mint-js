@@ -1,7 +1,4 @@
-export default function* lexer(
-  strings: TemplateStringsArray,
-  values: any[]
-): Generator<Token> {
+export default function* lexer(strings: TemplateStringsArray, values: any[]): Generator<Token> {
   let line = 1;
   let column = 1;
 
@@ -9,10 +6,7 @@ export default function* lexer(
   let textBuffer = "";
   let bufferStart = 1;
 
-  function* flushBuffer(
-    type: Token["type"],
-    buffer: string
-  ): Generator<Token, string> {
+  function* flushBuffer(type: Token["type"], buffer: string): Generator<Token, string> {
     if (buffer.length) {
       yield {
         type,
@@ -105,10 +99,23 @@ export interface Token {
     | "WHITE_SPACE"
     | "TEXT"
     | "QUOTE"
-    | "INTERPOLATION";
+    | "INTERPOLATION"
+    | "PERIOD";
   value: string | any;
   position: { line: number; column: number };
 }
+
+export const tokenMap: Record<Token["type"], string> = {
+  LESS_THAN: "<",
+  GREATER_THAN: ">",
+  FORWARD_SLASH: "/",
+  EQUALS: "=",
+  WHITE_SPACE: " ",
+  TEXT: "text",
+  QUOTE: '"',
+  INTERPOLATION: "${...}",
+  PERIOD: ".",
+};
 
 const SpecialTokens: Record<string, Token["type"]> = {
   "<": "LESS_THAN",
@@ -116,4 +123,5 @@ const SpecialTokens: Record<string, Token["type"]> = {
   "/": "FORWARD_SLASH",
   "=": "EQUALS",
   '"': "QUOTE",
+  ".": "PERIOD",
 };

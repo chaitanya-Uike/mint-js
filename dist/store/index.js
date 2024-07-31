@@ -40,7 +40,7 @@ export function createStore(initialState) {
             cache.set(key, newReactive, newReactive[DISPOSE].bind(newReactive));
         };
         const store = new Proxy(initialState, {
-            get(target, key) {
+            get(target, key, receiver) {
                 if (key === STORE)
                     return cache;
                 if (key === DISPOSE)
@@ -48,21 +48,21 @@ export function createStore(initialState) {
                 if (key === SCOPE)
                     return scope;
                 if (typeof key === "symbol")
-                    return Reflect.get(target, key);
+                    return Reflect.get(target, key, receiver);
                 if (Object.prototype.hasOwnProperty.call(target, key)) {
                     if (!cache.has(key))
                         handleNewValue(key, target[key]);
                     const cachedValue = cache.get(key);
                     return isSignal(cachedValue) ? cachedValue() : cachedValue;
                 }
-                return Reflect.get(target, key);
+                return Reflect.get(target, key, receiver);
             },
-            set(target, key, newValue) {
+            set(target, key, newValue, receiver) {
                 if (key === STORE || key === SCOPE || key === DISPOSE)
                     true;
                 if (typeof key === "symbol")
-                    return Reflect.set(target, key, newValue);
-                const result = Reflect.set(target, key, newValue);
+                    return Reflect.set(target, key, newValue, receiver);
+                const result = Reflect.set(target, key, newValue, receiver);
                 if (Object.prototype.hasOwnProperty.call(target, key)) {
                     const existingValue = cache.get(key);
                     if (isSignal(existingValue)) {
