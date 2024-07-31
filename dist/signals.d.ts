@@ -1,4 +1,4 @@
-import { Reactive, Root } from "./core";
+import { ReactiveNode, Root } from "./core";
 import { DISPOSE, NODE } from "./constants";
 declare const SIGNAL: unique symbol;
 export interface Signal<T = any> {
@@ -6,7 +6,7 @@ export interface Signal<T = any> {
     set(value: T | ((prevVal: T) => void)): void;
     [SIGNAL]: boolean;
     [DISPOSE]: () => void;
-    [NODE]: Reactive<T>;
+    [NODE]: ReactiveNode<T>;
 }
 export declare function signal<T>(initValue: T | (() => T)): Signal<T>;
 export declare function isSignal(value: any): value is Signal<any>;

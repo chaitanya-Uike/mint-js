@@ -1,13 +1,10 @@
-import { Store } from ".";
-import { Signal } from "../signals";
-type DisposeFn = () => void;
+import { Reactive } from ".";
 export interface SignalCache {
-    get(key: string | number): Store | Signal | undefined;
-    set(key: string | number, value: Store | Signal, disposeFn: DisposeFn): void;
-    delete(key: string | number): void;
-    has(key: string | number): boolean;
+    get(key: PropertyKey): Reactive | undefined;
+    set(key: PropertyKey, newValue: Reactive): Reactive;
+    delete(key: PropertyKey): void;
+    has(key: PropertyKey): boolean;
     size(): number;
-    [Symbol.iterator](): Iterator<[string, Store | Signal]>;
+    [Symbol.iterator](): Iterator<[string, Reactive]>;
 }
-export declare function getSignalCache<T extends object>(initialState: T): SignalCache;
-export {};
+export declare function getSignalCache<T extends object>(initValue: T): SignalCache;

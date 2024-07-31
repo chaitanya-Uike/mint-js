@@ -23,4 +23,6 @@ export const validTags = [
     "th",
     "form",
     "label",
+    "option",
+    "select",
 ];

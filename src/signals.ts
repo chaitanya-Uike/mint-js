@@ -1,4 +1,4 @@
-import { Reactive, Root, createReactive, effect, onCleanup } from "./core";
+import { ReactiveNode, Root, createReactive, effect, onCleanup } from "./core";
 import { DISPOSE, NODE } from "./constants";
 
 const SIGNAL = Symbol("signal");
@@ -8,7 +8,7 @@ export interface Signal<T = any> {
   set(value: T | ((prevVal: T) => void)): void;
   [SIGNAL]: boolean;
   [DISPOSE]: () => void;
-  [NODE]: Reactive<T>;
+  [NODE]: ReactiveNode<T>;
 }
 
 export function signal<T>(initValue: T | (() => T)): Signal<T> {
@@ -29,11 +29,14 @@ export function createEffect(fn: () => any | (() => void)): void {
 }
 
 export function createMemo<T>(fn: () => T): () => T {
-  const node = new Reactive(fn);
+  const node = new ReactiveNode(fn);
   return node.get.bind(node);
 }
 
-export function createSignalWithinScope<T>(initValue: T | (() => T), scope?: Root) {
+export function createSignalWithinScope<T>(
+  initValue: T | (() => T),
+  scope?: Root
+) {
   const node = createReactive(initValue, false, scope);
   const signalFunction = function (): T {
     return node.get();

@@ -1,116 +1,123 @@
-import { Store } from ".";
-import { effect } from "../core";
-import { signal, Signal } from "../signals";
+import { DISPOSE } from "../constants";
+import { Cleanup } from "../core";
+import { Reactive } from ".";
 
-type DisposeFn = () => void;
-
-interface CacheEntry {
-  value: Store | Signal;
-  dispose: DisposeFn;
-}
+type CacheEntry = {
+  value: Reactive;
+  dispose: Cleanup;
+};
 
 export interface SignalCache {
-  get(key: string | number): Store | Signal | undefined;
-  set(key: string | number, value: Store | Signal, disposeFn: DisposeFn): void;
-  delete(key: string | number): void;
-  has(key: string | number): boolean;
+  get(key: PropertyKey): Reactive | undefined;
+  set(key: PropertyKey, newValue: Reactive): Reactive;
+  delete(key: PropertyKey): void;
+  has(key: PropertyKey): boolean;
   size(): number;
-  [Symbol.iterator](): Iterator<[string, Store | Signal]>;
-}
-
-class ArrayCache implements SignalCache {
-  private cache: CacheEntry[];
-  private lengthSignal: Signal<number>;
-
-  constructor() {
-    this.cache = [];
-    this.lengthSignal = signal(0);
-  }
-
-  get(key: string | number): Signal | Store | undefined {
-    if (key === "length") return this.lengthSignal;
-    const index = this.parseIndex(key);
-    return this.cache[index]?.value;
-  }
-
-  set(key: string | number, value: Signal | Store, disposeFn: DisposeFn) {
-    const index = this.parseIndex(key);
-    if (index !== -1) {
-      const entry: CacheEntry = { value, dispose: disposeFn };
-      this.cache[index]?.dispose();
-      this.cache[index] = entry;
-    }
-  }
-
-  delete(key: string | number) {
-    const index = this.parseIndex(key);
-    if (index in this.cache) {
-      this.cache[index].dispose();
-      this.cache.splice(index, 1);
-    }
-  }
-
-  has(key: string | number) {
-    if (key === "length") return true;
-    return Number(key) in this.cache;
-  }
-
-  size() {
-    return this.cache.length;
-  }
-
-  private parseIndex(key: string | number): number {
-    const index = Number(key);
-    return !isNaN(index) && index >= 0 && index === Math.floor(index) ? index : -1;
-  }
-
-  *[Symbol.iterator](): Iterator<Signal | Store> {
-    for (let i = 0; i < this.cache.length; i++) {
-      yield this.cache[i].value;
-    }
-    yield this.lengthSignal;
-  }
+  [Symbol.iterator](): Iterator<[string, Reactive]>;
 }
 
 class ObjectCache implements SignalCache {
-  private cache: Map<string, CacheEntry>;
-
+  protected cache: Map<PropertyKey, CacheEntry>;
   constructor() {
-    this.cache = new Map<string, CacheEntry>();
+    this.cache = new Map();
   }
-
-  get(key: string | number) {
-    return this.cache.get(String(key))?.value;
+  get(key: PropertyKey): Reactive | undefined {
+    return this.cache.get(key)?.value;
   }
-
-  set(key: string | number, value: any, disposeFn: DisposeFn) {
-    const entry: CacheEntry = { value, dispose: disposeFn };
-    const stringKey = String(key);
-    this.cache.get(stringKey)?.dispose();
-    this.cache.set(stringKey, entry);
+  set(key: PropertyKey, newValue: Reactive): Reactive {
+    if (this.get(key) === newValue) return newValue;
+    this.cache.get(key)?.dispose();
+    this.cache.set(key, {
+      value: newValue,
+      dispose: newValue[DISPOSE].bind(newValue),
+    });
+    return newValue;
   }
-
-  delete(key: string | number) {
-    const stringKey = String(key);
-    this.cache.get(stringKey)?.dispose();
-    this.cache.delete(stringKey);
+  delete(key: PropertyKey): void {
+    this.cache.get(key)?.dispose();
+    this.cache.delete(key);
   }
-
-  has(key: string | number) {
-    return this.cache.has(String(key));
+  has(key: PropertyKey): boolean {
+    return this.cache.has(key);
   }
-
-  size() {
+  size(): number {
     return this.cache.size;
   }
-
-  *[Symbol.iterator](): Iterator<Store | Signal> {
-    for (const [_, entry] of this.cache) {
-      yield entry.value;
+  *[Symbol.iterator](): Iterator<[string, Reactive]> {
+    for (const [key, entry] of this.cache) {
+      yield [String(key), entry.value];
     }
   }
 }
 
-export function getSignalCache<T extends object>(initialState: T): SignalCache {
-  return Array.isArray(initialState) ? new ArrayCache() : new ObjectCache();
+class ArrayCache implements SignalCache {
+  private arrayCache: (CacheEntry | undefined)[];
+  private objectCache: ObjectCache;
+  constructor() {
+    this.arrayCache = [];
+    this.objectCache = new ObjectCache();
+  }
+  private isArrayIndex(key: PropertyKey): boolean {
+    if (typeof key === "symbol") return false;
+    const num = Number(key);
+    return Number.isInteger(num) && num >= 0 && num < 2 ** 32 - 1;
+  }
+  get(key: PropertyKey): Reactive | undefined {
+    if (this.isArrayIndex(key)) {
+      return this.arrayCache[Number(key)]?.value;
+    }
+    return this.objectCache.get(key);
+  }
+  set(key: PropertyKey, newValue: Reactive): Reactive {
+    if (this.get(key) === newValue) return newValue;
+    if (this.isArrayIndex(key)) {
+      const index = Number(key);
+      this.arrayCache[index]?.dispose();
+      this.arrayCache[index] = {
+        value: newValue,
+        dispose: newValue[DISPOSE].bind(newValue),
+      };
+    } else {
+      this.objectCache.set(key, newValue);
+    }
+    return newValue;
+  }
+  delete(key: PropertyKey): void {
+    if (this.isArrayIndex(key)) {
+      const index = Number(key);
+      this.arrayCache[index]?.dispose();
+      delete this.arrayCache[index];
+    } else {
+      this.objectCache.delete(key);
+    }
+  }
+  has(key: PropertyKey): boolean {
+    if (this.isArrayIndex(key)) {
+      return Number(key) in this.arrayCache;
+    }
+    return this.objectCache.has(key);
+  }
+  size(): number {
+    return (
+      this.arrayCache.filter((entry) => entry !== undefined).length +
+      this.objectCache.size()
+    );
+  }
+  *[Symbol.iterator](): Iterator<[string, Reactive]> {
+    for (let i = 0; i < this.arrayCache.length; i++) {
+      const entry = this.arrayCache[i];
+      if (entry !== undefined) {
+        yield [String(i), entry.value];
+      }
+    }
+    for (const [key, value] of this.objectCache) {
+      if (!this.isArrayIndex(key)) {
+        yield [key, value];
+      }
+    }
+  }
+}
+
+export function getSignalCache<T extends object>(initValue: T): SignalCache {
+  return Array.isArray(initValue) ? new ArrayCache() : new ObjectCache();
 }

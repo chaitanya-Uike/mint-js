@@ -25,4 +25,6 @@ export const validTags: HTMLTagName[] = [
   "th",
   "form",
   "label",
+  "option",
+  "select",
 ];

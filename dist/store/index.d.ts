@@ -1,14 +1,16 @@
 import { DISPOSE } from "../constants";
-import { Root } from "../core";
+import { Cleanup, Root } from "../core";
+import { Signal } from "../signals";
 import { SignalCache } from "./cache";
-declare const STORE: unique symbol;
+declare const CACHE: unique symbol;
 declare const SCOPE: unique symbol;
-type DisposeFn = () => void;
-export type Store<T extends object = any> = T & {
-    [STORE]: SignalCache;
-    [DISPOSE]: DisposeFn;
-    [SCOPE]: Root | null;
+export type Store<T extends object = object> = T & {
+    [SCOPE]: Root;
+    [CACHE]: SignalCache;
+    [DISPOSE]: Cleanup;
+    [key: PropertyKey]: any;
 };
-export declare function isStore(value: any): value is Store<any>;
-export declare function createStore<T extends object>(initialState: T): Store<T>;
+export type Reactive<T = any> = T extends Signal<any> ? T : T extends object ? Store<T> : Signal<T>;
+export declare function isStore(value: unknown): value is Store;
+export declare function createStore<T extends object>(initValue: T): Store<T>;
 export {};

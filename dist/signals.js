@@ -1,4 +1,4 @@
-import { Reactive, createReactive, effect, onCleanup } from "./core";
+import { ReactiveNode, createReactive, effect, onCleanup } from "./core";
 import { DISPOSE, NODE } from "./constants";
 const SIGNAL = Symbol("signal");
 export function signal(initValue) {
@@ -16,7 +16,7 @@ export function createEffect(fn) {
     });
 }
 export function createMemo(fn) {
-    const node = new Reactive(fn);
+    const node = new ReactiveNode(fn);
     return node.get.bind(node);
 }
 export function createSignalWithinScope(initValue, scope) {

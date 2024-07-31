@@ -11,7 +11,7 @@ var CacheState;
     CacheState[CacheState["Dirty"] = 2] = "Dirty";
     CacheState[CacheState["Disposed"] = 3] = "Disposed";
 })(CacheState || (CacheState = {}));
-export class Reactive {
+export class ReactiveNode {
     value;
     compute;
     _state;
@@ -114,7 +114,8 @@ export class Reactive {
         }
     }
     stale(newState) {
-        if (this._state === CacheState.Clean || (this._state === CacheState.Check && newState === CacheState.Dirty)) {
+        if (this._state === CacheState.Clean ||
+            (this._state === CacheState.Check && newState === CacheState.Dirty)) {
             if (this._state === CacheState.Clean && this.effect) {
                 scheduleEffect(this);
             }
@@ -196,9 +197,7 @@ export class Root {
     children;
     parentScope;
     disposed = false;
-    fn;
-    constructor(fn) {
-        this.fn = fn;
+    constructor() {
         this.children = new Set();
         this.parentScope = scope;
         this.parentScope?.append(this);
@@ -216,10 +215,10 @@ export class Root {
         this.parentScope?.children.delete(this);
         this.disposed = true;
     }
-    execute() {
+    execute(fn) {
         scope = this;
         try {
-            return this.fn(this.dispose.bind(this));
+            return fn(this.dispose.bind(this));
         }
         finally {
             scope = this.parentScope;
@@ -230,8 +229,8 @@ export class Root {
     }
 }
 export function createRoot(fn) {
-    const root = new Root(fn);
-    return root.execute();
+    const root = new Root();
+    return root.execute(fn);
 }
 export function getCurrentScope() {
     return scope;
@@ -241,11 +240,11 @@ export function createReactive(initValue, effect = false, parentScope) {
         const prevScope = scope;
         try {
             scope = parentScope;
-            return new Reactive(initValue, effect);
+            return new ReactiveNode(initValue, effect);
         }
         finally {
             scope = prevScope;
         }
     }
-    return new Reactive(initValue, effect);
+    return new ReactiveNode(initValue, effect);
 }

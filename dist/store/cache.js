@@ -1,82 +1,107 @@
-import { signal } from "../signals";
-class ArrayCache {
-    cache;
-    lengthSignal;
-    constructor() {
-        this.cache = [];
-        this.lengthSignal = signal(0);
-    }
-    get(key) {
-        if (key === "length")
-            return this.lengthSignal;
-        const index = this.parseIndex(key);
-        return this.cache[index]?.value;
-    }
-    set(key, value, disposeFn) {
-        const index = this.parseIndex(key);
-        if (index !== -1) {
-            const entry = { value, dispose: disposeFn };
-            this.cache[index]?.dispose();
-            this.cache[index] = entry;
-        }
-    }
-    delete(key) {
-        const index = this.parseIndex(key);
-        if (index in this.cache) {
-            this.cache[index].dispose();
-            this.cache.splice(index, 1);
-        }
-    }
-    has(key) {
-        if (key === "length")
-            return true;
-        return Number(key) in this.cache;
-    }
-    size() {
-        return this.cache.length;
-    }
-    parseIndex(key) {
-        const index = Number(key);
-        return !isNaN(index) && index >= 0 && index === Math.floor(index) ? index : -1;
-    }
-    *[Symbol.iterator]() {
-        for (let i = 0; i < this.cache.length; i++) {
-            yield this.cache[i].value;
-        }
-        yield this.lengthSignal;
-    }
-}
+import { DISPOSE } from "../constants";
 class ObjectCache {
     cache;
     constructor() {
         this.cache = new Map();
     }
     get(key) {
-        return this.cache.get(String(key))?.value;
+        return this.cache.get(key)?.value;
     }
-    set(key, value, disposeFn) {
-        const entry = { value, dispose: disposeFn };
-        const stringKey = String(key);
-        this.cache.get(stringKey)?.dispose();
-        this.cache.set(stringKey, entry);
+    set(key, newValue) {
+        if (this.get(key) === newValue)
+            return newValue;
+        this.cache.get(key)?.dispose();
+        this.cache.set(key, {
+            value: newValue,
+            dispose: newValue[DISPOSE].bind(newValue),
+        });
+        return newValue;
     }
     delete(key) {
-        const stringKey = String(key);
-        this.cache.get(stringKey)?.dispose();
-        this.cache.delete(stringKey);
+        this.cache.get(key)?.dispose();
+        this.cache.delete(key);
     }
     has(key) {
-        return this.cache.has(String(key));
+        return this.cache.has(key);
     }
     size() {
         return this.cache.size;
     }
     *[Symbol.iterator]() {
-        for (const [_, entry] of this.cache) {
-            yield entry.value;
+        for (const [key, entry] of this.cache) {
+            yield [String(key), entry.value];
         }
     }
 }
-export function getSignalCache(initialState) {
-    return Array.isArray(initialState) ? new ArrayCache() : new ObjectCache();
+class ArrayCache {
+    arrayCache;
+    objectCache;
+    constructor() {
+        this.arrayCache = [];
+        this.objectCache = new ObjectCache();
+    }
+    isArrayIndex(key) {
+        if (typeof key === "symbol")
+            return false;
+        const num = Number(key);
+        return Number.isInteger(num) && num >= 0 && num < 2 ** 32 - 1;
+    }
+    get(key) {
+        if (this.isArrayIndex(key)) {
+            return this.arrayCache[Number(key)]?.value;
+        }
+        return this.objectCache.get(key);
+    }
+    set(key, newValue) {
+        if (this.get(key) === newValue)
+            return newValue;
+        if (this.isArrayIndex(key)) {
+            const index = Number(key);
+            this.arrayCache[index]?.dispose();
+            this.arrayCache[index] = {
+                value: newValue,
+                dispose: newValue[DISPOSE].bind(newValue),
+            };
+        }
+        else {
+            this.objectCache.set(key, newValue);
+        }
+        return newValue;
+    }
+    delete(key) {
+        if (this.isArrayIndex(key)) {
+            const index = Number(key);
+            this.arrayCache[index]?.dispose();
+            delete this.arrayCache[index];
+        }
+        else {
+            this.objectCache.delete(key);
+        }
+    }
+    has(key) {
+        if (this.isArrayIndex(key)) {
+            return Number(key) in this.arrayCache;
+        }
+        return this.objectCache.has(key);
+    }
+    size() {
+        return (this.arrayCache.filter((entry) => entry !== undefined).length +
+            this.objectCache.size());
+    }
+    *[Symbol.iterator]() {
+        for (let i = 0; i < this.arrayCache.length; i++) {
+            const entry = this.arrayCache[i];
+            if (entry !== undefined) {
+                yield [String(i), entry.value];
+            }
+        }
+        for (const [key, value] of this.objectCache) {
+            if (!this.isArrayIndex(key)) {
+                yield [key, value];
+            }
+        }
+    }
+}
+export function getSignalCache(initValue) {
+    return Array.isArray(initValue) ? new ArrayCache() : new ObjectCache();
 }

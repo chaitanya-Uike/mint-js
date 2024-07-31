@@ -1,8 +1,8 @@
 import { isFunction } from "./utils";
 
-let currentObserver: Reactive | null = null;
-let newSources: Set<Reactive> | null = null;
-let effectsQueue: Reactive[] = [];
+let currentObserver: ReactiveNode | null = null;
+let newSources: Set<ReactiveNode> | null = null;
+let effectsQueue: ReactiveNode[] = [];
 let effectsScheduled = false;
 interface Disposable {
   dispose: () => void;
@@ -19,16 +19,16 @@ enum CacheState {
 type CacheStale = CacheState.Check | CacheState.Dirty;
 
 type ComputeFn<T> = (prevVal?: T) => T;
-type Cleanup = () => void;
+export type Cleanup = () => void;
 
-export class Reactive<T = any> implements Disposable {
+export class ReactiveNode<T = any> implements Disposable {
   private value: T;
   private compute?: ComputeFn<T>;
   private _state: CacheState;
   private effect: boolean;
   private _scope: Root | null = null;
-  sources: Set<Reactive> | null = null;
-  observers: Set<Reactive> | null = null;
+  sources: Set<ReactiveNode> | null = null;
+  observers: Set<ReactiveNode> | null = null;
 
   cleanups: Cleanup[] | null = null;
 
@@ -96,8 +96,8 @@ export class Reactive<T = any> implements Disposable {
   }
 
   private updateGraph(): void {
-    const currentSources = this.sources || new Set<Reactive>();
-    const updatedSources = newSources || new Set<Reactive>();
+    const currentSources = this.sources || new Set<ReactiveNode>();
+    const updatedSources = newSources || new Set<ReactiveNode>();
 
     // Remove this observer from sources that are no longer present
     for (const source of currentSources) {
@@ -132,7 +132,10 @@ export class Reactive<T = any> implements Disposable {
   }
 
   private stale(newState: CacheStale) {
-    if (this._state === CacheState.Clean || (this._state === CacheState.Check && newState === CacheState.Dirty)) {
+    if (
+      this._state === CacheState.Clean ||
+      (this._state === CacheState.Check && newState === CacheState.Dirty)
+    ) {
       if (this._state === CacheState.Clean && this.effect) {
         scheduleEffect(this);
       }
@@ -162,7 +165,7 @@ export class Reactive<T = any> implements Disposable {
   }
 }
 
-function suspendTracking(newObserver: Reactive | null = null) {
+function suspendTracking(newObserver: ReactiveNode | null = null) {
   const currContext = {
     currentObserver,
     newSources: newSources,
@@ -172,7 +175,10 @@ function suspendTracking(newObserver: Reactive | null = null) {
   return currContext;
 }
 
-function resumeTracking(context: { currentObserver: Reactive | null; newSources: Set<Reactive> | null }) {
+function resumeTracking(context: {
+  currentObserver: ReactiveNode | null;
+  newSources: Set<ReactiveNode> | null;
+}) {
   ({ currentObserver, newSources: newSources } = context);
 }
 
@@ -184,7 +190,7 @@ export function flush() {
   effectsScheduled = false;
 }
 
-function scheduleEffect(effect: Reactive<any>) {
+function scheduleEffect(effect: ReactiveNode<any>) {
   effectsQueue.push(effect);
   if (!effectsScheduled) {
     effectsScheduled = true;
@@ -214,14 +220,12 @@ export function unTrack<T>(fn: () => T): T {
   }
 }
 
-export class Root<T = any> implements Disposable {
+export class Root implements Disposable {
   private children: Set<Disposable>;
   private parentScope: Root | null;
   private disposed: boolean = false;
-  private fn: (dispose: () => void) => T;
 
-  constructor(fn: (dispose: () => void) => T) {
-    this.fn = fn;
+  constructor() {
     this.children = new Set();
     this.parentScope = scope;
     this.parentScope?.append(this);
@@ -239,10 +243,10 @@ export class Root<T = any> implements Disposable {
     this.disposed = true;
   }
 
-  execute() {
+  execute<T>(fn: (dispose: () => void) => T) {
     scope = this;
     try {
-      return this.fn(this.dispose.bind(this));
+      return fn(this.dispose.bind(this));
     } finally {
       scope = this.parentScope;
     }
@@ -254,23 +258,27 @@ export class Root<T = any> implements Disposable {
 }
 
 export function createRoot<T = any>(fn: (dispose: () => void) => T): T {
-  const root = new Root(fn);
-  return root.execute();
+  const root = new Root();
+  return root.execute(fn);
 }
 
 export function getCurrentScope(): Root | null {
   return scope;
 }
 
-export function createReactive<T>(initValue: (() => T) | T, effect = false, parentScope?: Root | null) {
+export function createReactive<T>(
+  initValue: (() => T) | T,
+  effect = false,
+  parentScope?: Root | null
+) {
   if (parentScope !== undefined) {
     const prevScope = scope;
     try {
       scope = parentScope;
-      return new Reactive(initValue, effect);
+      return new ReactiveNode(initValue, effect);
     } finally {
       scope = prevScope;
     }
   }
-  return new Reactive(initValue, effect);
+  return new ReactiveNode(initValue, effect);
 }

@@ -8,15 +8,15 @@ declare enum CacheState {
     Disposed = 3
 }
 type ComputeFn<T> = (prevVal?: T) => T;
-type Cleanup = () => void;
-export declare class Reactive<T = any> implements Disposable {
+export type Cleanup = () => void;
+export declare class ReactiveNode<T = any> implements Disposable {
     private value;
     private compute?;
     private _state;
     private effect;
     private _scope;
-    sources: Set<Reactive> | null;
-    observers: Set<Reactive> | null;
+    sources: Set<ReactiveNode> | null;
+    observers: Set<ReactiveNode> | null;
     cleanups: Cleanup[] | null;
     constructor(initValue: (() => T) | T, effect?: boolean);
     get(): T;
@@ -35,18 +35,17 @@ export declare function flush(): void;
 export declare function effect(fn: () => any): void;
 export declare function onCleanup(fn: Cleanup): void;
 export declare function unTrack<T>(fn: () => T): T;
-export declare class Root<T = any> implements Disposable {
+export declare class Root implements Disposable {
     private children;
     private parentScope;
     private disposed;
-    private fn;
-    constructor(fn: (dispose: () => void) => T);
+    constructor();
     append(child: Disposable): void;
     dispose(): void;
-    execute(): T;
+    execute<T>(fn: (dispose: () => void) => T): T;
     removeChild(child: Disposable): boolean;
 }
 export declare function createRoot<T = any>(fn: (dispose: () => void) => T): T;
 export declare function getCurrentScope(): Root | null;
-export declare function createReactive<T>(initValue: (() => T) | T, effect?: boolean, parentScope?: Root | null): Reactive<T>;
+export declare function createReactive<T>(initValue: (() => T) | T, effect?: boolean, parentScope?: Root | null): ReactiveNode<T>;
 export {};
