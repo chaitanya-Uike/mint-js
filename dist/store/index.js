@@ -64,7 +64,7 @@ const proxyHandler = {
     set(target, prop, newValue, receiver) {
         const result = Reflect.set(target, prop, newValue, receiver);
         if (isTrackable(target, prop, receiver)) {
-            const reactive = getReactive(target, prop, undefined);
+            const reactive = getReactive(target, prop, newValue);
             const merged = mergeValue(target, reactive, newValue);
             target[CACHE].set(prop, merged);
         }
@@ -87,7 +87,7 @@ function mergeValue(target, reactive, newValue) {
         reactive.set(newValue);
         return reactive;
     }
-    else if (isStore(reactive)) {
+    else {
         if (!isStore(newValue) && isWrappable(newValue)) {
             const existingKeys = new Set(Object.keys(reactive));
             Object.entries(newValue).forEach(([subKey, subValue]) => {
@@ -101,7 +101,6 @@ function mergeValue(target, reactive, newValue) {
         }
         return createReactive(target, newValue);
     }
-    return createReactive(target, newValue);
 }
 function wrap(value) {
     const proxy = new Proxy(value, proxyHandler);

@@ -86,7 +86,7 @@ class ArrayCache implements SignalCache {
     if (this.isArrayIndex(key)) {
       const index = Number(key);
       this.arrayCache[index]?.dispose();
-      delete this.arrayCache[index];
+      this.arrayCache.splice(index, 1);
     } else {
       this.objectCache.delete(key);
     }
