@@ -32,7 +32,7 @@ export declare class ReactiveNode<T = any> implements Disposable {
     updateScope(newScope: Root | null): void;
 }
 export declare function flush(): void;
-export declare function effect(fn: () => any): void;
+export declare function effect(fn: () => any | (() => void)): void;
 export declare function onCleanup(fn: Cleanup): void;
 export declare function unTrack<T>(fn: () => T): T;
 export declare class Root implements Disposable {

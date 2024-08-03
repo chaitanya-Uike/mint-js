@@ -198,8 +198,11 @@ function scheduleEffect(effect: ReactiveNode<any>) {
   }
 }
 
-export function effect(fn: () => any) {
-  const node = createReactive(fn, true);
+export function effect(fn: () => any | (() => void)) {
+  const node = createReactive(() => {
+    const cleanup = fn();
+    if (typeof cleanup === "function") onCleanup(cleanup);
+  }, true);
   node.get();
 }
 

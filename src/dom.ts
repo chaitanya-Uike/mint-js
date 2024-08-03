@@ -1,17 +1,20 @@
 import { effect, createRoot, unTrack, onCleanup } from "./core";
 import { isSignal } from "./signals";
-import type { Child, CreateElement, Props, StyleObject, Marker } from "./types";
+import type {
+  Child,
+  CreateElement,
+  Props,
+  StyleObject,
+  Marker,
+  ComponentFunction,
+} from "./types";
 import { isFunction } from "./utils";
 
 const getProto = Object.getPrototypeOf;
 
-export const createElement: CreateElement = (name, ...args) => {
-  const [props, ...children] =
-    args[0] && Object.prototype.toString.call(args[0]) === "[object Object]"
-      ? (args as [Props, ...Child[]])
-      : ([{}, ...args] as [Props, ...Child[]]);
-  const element = document.createElement(name);
-  appendChildren(element, children);
+export const createElement: CreateElement = (type, props) => {
+  const element = document.createElement(type);
+  appendChildren(element, props.children);
   handleProps(element, props);
   return element;
 };
@@ -143,18 +146,15 @@ function reconcileArrays(parentNode: Node, a: Node[], b: Node[]) {
     map: Map<Node, number> | null = null;
 
   while (aStart < aEnd || bStart < bEnd) {
-    // common prefix
     if (a[aStart] === b[bStart]) {
       aStart++;
       bStart++;
       continue;
     }
-    // common suffix
     while (a[aEnd - 1] === b[bEnd - 1]) {
       aEnd--;
       bEnd--;
     }
-    // append
     if (aEnd === aStart) {
       const node =
         bEnd < bLength
@@ -163,7 +163,6 @@ function reconcileArrays(parentNode: Node, a: Node[], b: Node[]) {
             : b[bEnd - bStart]
           : after;
       while (bStart < bEnd) parentNode.insertBefore(b[bStart++], node);
-      // remove
     } else if (bEnd === bStart) {
       while (aStart < aEnd) {
         if (!map || !map.has(a[aStart])) {
@@ -171,13 +170,11 @@ function reconcileArrays(parentNode: Node, a: Node[], b: Node[]) {
         }
         aStart++;
       }
-      // swap backward
     } else if (a[aStart] === b[bEnd - 1] && b[bStart] === a[aEnd - 1]) {
       const node = a[--aEnd].nextSibling;
       parentNode.insertBefore(b[bStart++], a[aStart++].nextSibling);
       parentNode.insertBefore(b[--bEnd], node);
       a[aEnd] = b[bEnd];
-      // fallback to map
     } else {
       if (!map) {
         map = new Map();
@@ -247,7 +244,8 @@ function getNodesBetween(startNode: Marker, endNode: Marker) {
 
 function handleProps(element: HTMLElement, props: Props): void {
   Object.entries(props).forEach(([key, value]) => {
-    if (key.startsWith("on") && isFunction(value)) {
+    if (key === "children") return;
+    else if (key.startsWith("on") && isFunction(value)) {
       const event = key.slice(2).toLowerCase();
       element.addEventListener(event, value);
     } else if (key === "style" && typeof value === "object") {
@@ -313,15 +311,11 @@ function getPropSetter(element: HTMLElement, key: string) {
   return setter ? setter.bind(element) : undefined;
 }
 
-export function component(
-  fn: (props: Props & { children: Child[] }) => Node
-): (props: Props & { children: Child[] }) => Node {
+export function component(fn: ComponentFunction, props: Props): Node {
   return unTrack(() => {
     return createRoot((dispose) => {
       onCleanup(dispose);
-      return (props: Props & { children: Child[] }) => {
-        return fn(props);
-      };
+      return fn(props);
     });
   });
 }

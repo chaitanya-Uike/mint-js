@@ -70,7 +70,7 @@ function createReactive<T>(target: Store, value: T): Reactive<T> {
     return value as Reactive<T>;
   }
   return isWrappable(value)
-    ? (createStore(value as T & object) as Reactive<T>)
+    ? (store(value as T & object) as Reactive<T>)
     : (createSignalWithinScope(value, scope) as Reactive<T>);
 }
 
@@ -150,7 +150,7 @@ function wrap<T extends object>(value: Store<T>): Store<T> {
   return proxy;
 }
 
-export function createStore<T extends object>(initValue: T): Store<T> {
+export function store<T extends object>(initValue: T): Store<T> {
   if (!isWrappable(initValue)) {
     throw new Error("Initial value must be an object");
   }

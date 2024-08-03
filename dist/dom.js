@@ -2,12 +2,9 @@ import { effect, createRoot, unTrack, onCleanup } from "./core";
 import { isSignal } from "./signals";
 import { isFunction } from "./utils";
 const getProto = Object.getPrototypeOf;
-export const createElement = (name, ...args) => {
-    const [props, ...children] = args[0] && Object.prototype.toString.call(args[0]) === "[object Object]"
-        ? args
-        : [{}, ...args];
-    const element = document.createElement(name);
-    appendChildren(element, children);
+export const createElement = (type, props) => {
+    const element = document.createElement(type);
+    appendChildren(element, props.children);
     handleProps(element, props);
     return element;
 };
@@ -134,18 +131,15 @@ function handleDynamicChild(element, value, startNode, endNode) {
 function reconcileArrays(parentNode, a, b) {
     let bLength = b.length, aEnd = a.length, bEnd = bLength, aStart = 0, bStart = 0, after = a[aEnd - 1]?.nextSibling || null, map = null;
     while (aStart < aEnd || bStart < bEnd) {
-        // common prefix
         if (a[aStart] === b[bStart]) {
             aStart++;
             bStart++;
             continue;
         }
-        // common suffix
         while (a[aEnd - 1] === b[bEnd - 1]) {
             aEnd--;
             bEnd--;
         }
-        // append
         if (aEnd === aStart) {
             const node = bEnd < bLength
                 ? bStart
@@ -154,7 +148,6 @@ function reconcileArrays(parentNode, a, b) {
                 : after;
             while (bStart < bEnd)
                 parentNode.insertBefore(b[bStart++], node);
-            // remove
         }
         else if (bEnd === bStart) {
             while (aStart < aEnd) {
@@ -163,14 +156,12 @@ function reconcileArrays(parentNode, a, b) {
                 }
                 aStart++;
             }
-            // swap backward
         }
         else if (a[aStart] === b[bEnd - 1] && b[bStart] === a[aEnd - 1]) {
             const node = a[--aEnd].nextSibling;
             parentNode.insertBefore(b[bStart++], a[aStart++].nextSibling);
             parentNode.insertBefore(b[--bEnd], node);
             a[aEnd] = b[bEnd];
-            // fallback to map
         }
         else {
             if (!map) {
@@ -246,7 +237,9 @@ function getNodesBetween(startNode, endNode) {
 }
 function handleProps(element, props) {
     Object.entries(props).forEach(([key, value]) => {
-        if (key.startsWith("on") && isFunction(value)) {
+        if (key === "children")
+            return;
+        else if (key.startsWith("on") && isFunction(value)) {
             const event = key.slice(2).toLowerCase();
             element.addEventListener(event, value);
         }
@@ -300,13 +293,11 @@ function getPropSetter(element, key) {
     const setter = getPropDescriptor(getProto(element), key)?.set;
     return setter ? setter.bind(element) : undefined;
 }
-export function component(fn) {
+export function component(fn, props) {
     return unTrack(() => {
         return createRoot((dispose) => {
             onCleanup(dispose);
-            return (props) => {
-                return fn(props);
-            };
+            return fn(props);
         });
     });
 }

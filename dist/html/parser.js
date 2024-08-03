@@ -4,7 +4,7 @@ export const isASTNode = (value) => value &&
     typeof value === "object" &&
     "type" in value &&
     "props" in value &&
-    "children" in value;
+    "children" in value["props"];
 export default class HTMLParser {
     tokens;
     current;
@@ -70,7 +70,7 @@ export default class HTMLParser {
         const isSelfClosing = this.match("FORWARD_SLASH");
         this.skipWhiteSpace();
         this.consume("GREATER_THAN");
-        const element = { type, props, children: [] };
+        const element = { type, props };
         if (!isSelfClosing) {
             this.stack.push(element);
         }
@@ -82,7 +82,7 @@ export default class HTMLParser {
         }
     }
     parseProps() {
-        const props = {};
+        const props = { children: [] };
         while (this.current &&
             this.current.type !== "GREATER_THAN" &&
             this.current.type !== "FORWARD_SLASH") {
@@ -247,7 +247,7 @@ export default class HTMLParser {
         const top = this.stack[this.stack.length - 1];
         if (!isASTNode(top))
             throw new Error(this.prettifyError(`Invalid HTML structure`));
-        top.children.push(child);
+        top.props.children.push(child);
     }
     skipWhiteSpace() {
         while (this.match("WHITE_SPACE")) { }

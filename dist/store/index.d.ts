@@ -12,5 +12,5 @@ export type Store<T extends object = object> = T & {
 };
 export type Reactive<T = any> = T extends Signal<any> ? T : T extends object ? Store<T> : Signal<T>;
 export declare function isStore(value: unknown): value is Store;
-export declare function createStore<T extends object>(initValue: T): Store<T>;
+export declare function store<T extends object>(initValue: T): Store<T>;
 export {};

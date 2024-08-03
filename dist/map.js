@@ -1,10 +1,10 @@
-import { isSignal, signal, createEffect } from "./signals";
-import { createRoot, unTrack } from "./core";
+import { isSignal, signal } from "./signals";
+import { effect, createRoot, unTrack } from "./core";
 export function reactiveMap(list, callback) {
     let cleanups = [];
     let mapped = signal([]);
     let prevList = [];
-    createEffect(() => {
+    effect(() => {
         const currentList = isSignal(list) ? list() : list;
         const nextDispose = [];
         const nextMapped = [];

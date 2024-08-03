@@ -1,11 +1,13 @@
-import { ComponentFunction, Props } from "../types";
+import { Child, ComponentFunction } from "../types";
 import { isFunction } from "../utils";
 import { Token, tokenMap } from "./lexer";
+
+type Element = ASTNode | Child;
+type Props = Record<string, any> & { children: Element[] };
 
 export type ASTNode = {
   type: string | ComponentFunction;
   props: Props;
-  children: (ASTNode | string | null | boolean | number)[];
 };
 
 export const isASTNode = (value: any): value is ASTNode =>
@@ -13,7 +15,7 @@ export const isASTNode = (value: any): value is ASTNode =>
   typeof value === "object" &&
   "type" in value &&
   "props" in value &&
-  "children" in value;
+  "children" in value["props"];
 
 export default class HTMLParser {
   private tokens: Generator<Token>;
@@ -90,7 +92,7 @@ export default class HTMLParser {
     this.skipWhiteSpace();
     this.consume("GREATER_THAN");
 
-    const element: ASTNode = { type, props, children: [] };
+    const element: ASTNode = { type, props };
 
     if (!isSelfClosing) {
       this.stack.push(element);
@@ -102,7 +104,7 @@ export default class HTMLParser {
   }
 
   private parseProps(): Props {
-    const props: Props = {};
+    const props: Props = { children: [] };
     while (
       this.current &&
       this.current.type !== "GREATER_THAN" &&
@@ -305,7 +307,7 @@ export default class HTMLParser {
     const top = this.stack[this.stack.length - 1];
     if (!isASTNode(top))
       throw new Error(this.prettifyError(`Invalid HTML structure`));
-    top.children.push(child);
+    top.props.children.push(child);
   }
 
   private skipWhiteSpace() {

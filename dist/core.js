@@ -172,7 +172,11 @@ function scheduleEffect(effect) {
     }
 }
 export function effect(fn) {
-    const node = createReactive(fn, true);
+    const node = createReactive(() => {
+        const cleanup = fn();
+        if (typeof cleanup === "function")
+            onCleanup(cleanup);
+    }, true);
     node.get();
 }
 // should only be called inside an effect

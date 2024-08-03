@@ -19,16 +19,7 @@ export function isSignal(value: any): value is Signal<any> {
   return typeof value === "function" && value[SIGNAL] === true;
 }
 
-export function createEffect(fn: () => any | (() => void)): void {
-  effect(() => {
-    const cleanup = fn();
-    if (typeof cleanup === "function") {
-      onCleanup(cleanup);
-    }
-  });
-}
-
-export function createMemo<T>(fn: () => T): () => T {
+export function memo<T>(fn: () => T): () => T {
   const node = new ReactiveNode(fn);
   return node.get.bind(node);
 }

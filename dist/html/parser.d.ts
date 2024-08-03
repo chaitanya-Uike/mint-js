@@ -1,9 +1,12 @@
-import { ComponentFunction, Props } from "../types";
+import { Child, ComponentFunction } from "../types";
 import { Token } from "./lexer";
+type Element = ASTNode | Child;
+type Props = Record<string, any> & {
+    children: Element[];
+};
 export type ASTNode = {
     type: string | ComponentFunction;
     props: Props;
-    children: (ASTNode | string | null | boolean | number)[];
 };
 export declare const isASTNode: (value: any) => value is ASTNode;
 export default class HTMLParser {
@@ -31,3 +34,4 @@ export default class HTMLParser {
     private skipWhiteSpace;
     private prettifyError;
 }
+export {};

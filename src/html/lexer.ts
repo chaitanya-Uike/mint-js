@@ -1,4 +1,7 @@
-export default function* lexer(strings: TemplateStringsArray, values: any[]): Generator<Token> {
+export default function* lexer(
+  strings: TemplateStringsArray,
+  values: any[]
+): Generator<Token> {
   let line = 1;
   let column = 1;
 
@@ -6,7 +9,10 @@ export default function* lexer(strings: TemplateStringsArray, values: any[]): Ge
   let textBuffer = "";
   let bufferStart = 1;
 
-  function* flushBuffer(type: Token["type"], buffer: string): Generator<Token, string> {
+  function* flushBuffer(
+    type: Token["type"],
+    buffer: string
+  ): Generator<Token, string> {
     if (buffer.length) {
       yield {
         type,

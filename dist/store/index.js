@@ -44,7 +44,7 @@ function createReactive(target, value) {
         return value;
     }
     return isWrappable(value)
-        ? createStore(value)
+        ? store(value)
         : createSignalWithinScope(value, scope);
 }
 function getReactive(target, prop, value) {
@@ -114,7 +114,7 @@ function wrap(value) {
     }
     return proxy;
 }
-export function createStore(initValue) {
+export function store(initValue) {
     if (!isWrappable(initValue)) {
         throw new Error("Initial value must be an object");
     }

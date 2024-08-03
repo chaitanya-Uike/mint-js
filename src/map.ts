@@ -1,6 +1,6 @@
 import { Store } from "./store";
-import { isSignal, signal, Signal, createEffect } from "./signals";
-import { createRoot, unTrack } from "./core";
+import { isSignal, signal, Signal } from "./signals";
+import { effect, createRoot, unTrack } from "./core";
 
 type MapCallback<T, U> = (item: T, index: number) => U;
 type CleanupFunction = () => void;
@@ -13,7 +13,7 @@ export function reactiveMap<T, U>(
   let mapped = signal<U[]>([]);
   let prevList: T[] = [];
 
-  createEffect(() => {
+  effect(() => {
     const currentList: T[] = isSignal(list) ? list() : list;
     const nextDispose: (CleanupFunction | null)[] = [];
     const nextMapped: U[] = [];
