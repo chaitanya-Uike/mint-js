@@ -1,6 +1,6 @@
 import HTMLParser, { ASTNode, isASTNode } from "./parser";
 import lexer from "./lexer";
-import { Component, createElement, isHTMLTagName } from "../dom";
+import { component, createElement } from "../dom";
 import { isFunction } from "../utils";
 
 export function html(strings: TemplateStringsArray, ...values: any[]): Node {
@@ -22,12 +22,9 @@ function renderAST(node: ASTNode | string): Node {
   );
 
   if (isFunction(type)) {
-    return Component(type)({ ...props, children: renderedChildren });
-  } else if (isHTMLTagName(type)) {
-    return createElement(type, props, ...renderedChildren);
-  } else {
-    throw new Error(`Invalid node type: ${type}`);
+    return component(type)({ ...props, children: renderedChildren });
   }
+  return createElement(type, props, ...renderedChildren);
 }
 
 function getTemplate(strings: TemplateStringsArray, values: any[]) {

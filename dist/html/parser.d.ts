@@ -1,5 +1,4 @@
-import { ComponentFunction } from "../dom";
-import { Props } from "../types";
+import { ComponentFunction, Props } from "../types";
 import { Token } from "./lexer";
 export type ASTNode = {
     type: string | ComponentFunction;

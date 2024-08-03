@@ -1,6 +1,10 @@
 import { isFunction } from "../utils";
 import { tokenMap } from "./lexer";
-export const isASTNode = (value) => value && typeof value === "object" && "type" in value && "props" in value && "children" in value;
+export const isASTNode = (value) => value &&
+    typeof value === "object" &&
+    "type" in value &&
+    "props" in value &&
+    "children" in value;
 export default class HTMLParser {
     tokens;
     current;
@@ -79,7 +83,9 @@ export default class HTMLParser {
     }
     parseProps() {
         const props = {};
-        while (this.current && this.current.type !== "GREATER_THAN" && this.current.type !== "FORWARD_SLASH") {
+        while (this.current &&
+            this.current.type !== "GREATER_THAN" &&
+            this.current.type !== "FORWARD_SLASH") {
             this.skipWhiteSpace();
             if (this.match("PERIOD")) {
                 this.consume("PERIOD");
@@ -196,7 +202,8 @@ export default class HTMLParser {
     }
     parseText() {
         let text = "";
-        while (this.current && ["TEXT", "WHITE_SPACE", "QUOTE"].includes(this.current.type)) {
+        while (this.current &&
+            ["TEXT", "WHITE_SPACE", "QUOTE"].includes(this.current.type)) {
             text += this.current.value;
             this.advance();
         }

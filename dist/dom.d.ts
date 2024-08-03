@@ -1,10 +1,7 @@
-import type { Child, CreateElement, Props, TagsObject, HTMLTagName } from "./types";
+import type { Child, CreateElement, Props } from "./types";
 export declare const createElement: CreateElement;
-export declare const tags: TagsObject;
-export type ComponentFunction = (props: Props, ...children: Child[]) => Node;
-export declare function Component<P extends Props = {}>(fn: (props: P & {
-    children?: Child[];
-}) => Node): (props?: P & {
-    children?: Child[];
+export declare function component(fn: (props: Props & {
+    children: Child[];
+}) => Node): (props: Props & {
+    children: Child[];
 }) => Node;
-export declare function isHTMLTagName(value: any): value is HTMLTagName;

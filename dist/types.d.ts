@@ -5,8 +5,5 @@ type StyleValue = string | number | Signal<any> | (() => string | number);
 export type StyleObject = Record<string, StyleValue>;
 export type CreateElement = (name: string, ...args: [Props?, ...Child[]] | Child[]) => Node;
 export type Marker = Node | null;
-export type HTMLTagName = "div" | "span" | "p" | "a" | "img" | "button" | "input" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "ul" | "ol" | "li" | "table" | "tr" | "td" | "th" | "form" | "label" | "option" | "select";
-export type TagsObject = {
-    [K in HTMLTagName]: (...args: [Props?, ...Child[]] | Child[]) => HTMLElement;
-};
+export type ComponentFunction = (props: Props, ...children: Child[]) => Node;
 export {};
