@@ -120,7 +120,7 @@ function handleDynamicChild(element, value, startNode, endNode) {
                         element.appendChild(node);
                 }
                 else
-                    reconcileArrays(element, existingNodes, newNodes);
+                    diffArrays(element, existingNodes, newNodes);
                 endNode = newNodes[newNodes.length - 1];
                 startNode = newNodes.length > 1 ? newNodes[0] : null;
             }
@@ -128,7 +128,8 @@ function handleDynamicChild(element, value, startNode, endNode) {
     }
     return [startNode, endNode];
 }
-function reconcileArrays(parentNode, a, b) {
+// reference: https://github.com/WebReflection/udomdiff/blob/main/index.js
+function diffArrays(parentNode, a, b) {
     let bLength = b.length, aEnd = a.length, bEnd = bLength, aStart = 0, bStart = 0, after = a[aEnd - 1]?.nextSibling || null, map = null;
     while (aStart < aEnd || bStart < bEnd) {
         if (a[aStart] === b[bStart]) {
