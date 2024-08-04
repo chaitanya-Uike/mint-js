@@ -145,6 +145,7 @@ export class ReactiveNode<T = any> implements Disposable {
   }
 
   dispose() {
+    console.log("disposing", this);
     if (this._state === CacheState.Disposed) return;
     this._state = CacheState.Disposed;
     this.handleCleanup();
@@ -239,6 +240,7 @@ export class Root implements Disposable {
   }
 
   dispose() {
+    console.log("disposing root", this);
     if (this.disposed) return;
     for (const child of this.children) child.dispose();
     this.children.clear();

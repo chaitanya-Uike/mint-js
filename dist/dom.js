@@ -247,6 +247,9 @@ function handleProps(element, props) {
         else if (key === "style" && typeof value === "object") {
             handleStyleObject(element, value);
         }
+        else if (key === "ref" && typeof value === "function") {
+            value(element);
+        }
         else {
             handleAttribute(element, key, value);
         }

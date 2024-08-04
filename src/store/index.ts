@@ -168,7 +168,6 @@ export function store<T extends object>(initValue: T): Store<T> {
 
     scope.append({ dispose: cache.clear.bind(cache) });
 
-    onCleanup(dispose);
     store[DISPOSE] = dispose;
 
     return wrap(store);

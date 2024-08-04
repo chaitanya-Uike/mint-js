@@ -1,5 +1,5 @@
 import { DISPOSE, NODE } from "../constants";
-import { createRoot, getCurrentScope, onCleanup } from "../core";
+import { createRoot, getCurrentScope } from "../core";
 import { createSignalWithinScope, isSignal } from "../signals";
 import { getSignalCache } from "./cache";
 const CACHE = Symbol("signal-cache");
@@ -126,12 +126,8 @@ export function store(initValue) {
         const cache = getSignalCache(initValue);
         store[SCOPE] = scope;
         store[CACHE] = cache;
-        const disposer = () => {
-            cache.clear();
-            dispose();
-        };
-        onCleanup(disposer);
-        store[DISPOSE] = disposer;
+        scope.append({ dispose: cache.clear.bind(cache) });
+        store[DISPOSE] = dispose;
         return wrap(store);
     });
 }

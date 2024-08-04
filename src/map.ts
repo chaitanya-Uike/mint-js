@@ -39,6 +39,7 @@ export function reactiveMap<T, U>(
 
     return () => {
       for (let i = 0; i < cleanups.length; i++) {
+        console.log("cleanup", cleanups[i]);
         cleanups[i]?.();
       }
       cleanups = nextDispose;
