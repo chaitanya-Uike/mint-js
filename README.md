@@ -760,8 +760,6 @@ When working with large lists, consider the following tips:
 
 By leveraging store arrays and `reactiveMap` for reactive lists, you can create efficient and performant list-based UIs in Mint-js without the need for explicit key management, while benefiting from fine-grained reactivity.
 
-[... previous content remains the same ...]
-
 ## Examples
 
 To help solidify your understanding of Mint-js and its features, here are some complete example components that demonstrate various aspects of the library.
