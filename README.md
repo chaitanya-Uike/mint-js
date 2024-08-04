@@ -301,6 +301,7 @@ const obj = store({
 effect(() => {
   console.log(`Name is ${obj.user.name}`);
 });
+flush();
 // Logs 'Name is John'
 
 obj.user.name = "John Doe";
@@ -326,6 +327,7 @@ const obj = store({
 effect(() => {
   console.log("Double value:", obj.doubleValue);
 });
+flush();
 // Logs:
 // Double value: 10
 
