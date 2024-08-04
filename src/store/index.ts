@@ -166,13 +166,10 @@ export function store<T extends object>(initValue: T): Store<T> {
     store[SCOPE] = scope;
     store[CACHE] = cache;
 
-    const disposer = () => {
-      cache.clear();
-      dispose();
-    };
+    scope.append({ dispose: cache.clear.bind(cache) });
 
-    onCleanup(disposer);
-    store[DISPOSE] = disposer;
+    onCleanup(dispose);
+    store[DISPOSE] = dispose;
 
     return wrap(store);
   });
