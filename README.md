@@ -402,20 +402,6 @@ By using stores, you can create reactive objects with fine-grained reactivity wh
 
 Mint-js provides a powerful and intuitive way to create and manipulate DOM elements using the `html` tagged template function. This approach offers JSX-like features without any build-time dependencies, enabling easy creation of dynamic and reactive user interfaces.
 
-## Table of Contents
-
-1. [Basic Usage](#basic-usage)
-2. [Syntax Highlighting](#syntax-highlighting)
-3. [Dynamic Content](#dynamic-content)
-4. [Attributes and Properties](#attributes-and-properties)
-5. [Reactive Contexts](#reactive-contexts)
-6. [Conditional Rendering](#conditional-rendering)
-7. [Event Handling](#event-handling)
-8. [Controlled Inputs](#controlled-inputs)
-9. [Components](#components)
-10. [Children](#children)
-11. [Array Rendering and Reactive Lists](#array-rendering-and-reactive-lists)
-
 ## Basic Usage
 
 The `html` tagged template function creates DOM elements using a syntax that closely resembles HTML:
