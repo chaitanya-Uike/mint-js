@@ -1,5 +1,5 @@
 import { DISPOSE, NODE } from "../constants";
-import { createRoot, getCurrentScope } from "../core";
+import { createRoot, getCurrentScope, onCleanup } from "../core";
 import { createSignalWithinScope, isSignal } from "../signals";
 import { getSignalCache } from "./cache";
 const CACHE = Symbol("signal-cache");
@@ -12,9 +12,11 @@ function isWrappable(obj) {
 function isTrackable(target, prop, receiver) {
     const value = Reflect.get(target, prop, receiver);
     const descriptor = Object.getOwnPropertyDescriptor(target, prop);
-    return (typeof value !== "function" &&
-        Object.prototype.hasOwnProperty.call(target, prop) &&
-        !(descriptor && descriptor.get));
+    return (isSignal(value) ||
+        isStore(value) ||
+        (typeof value !== "function" &&
+            Object.prototype.hasOwnProperty.call(target, prop) &&
+            !(descriptor && descriptor.get)));
 }
 function updateStoreScope(store, scope) {
     if (store[SCOPE] === scope)
@@ -116,13 +118,20 @@ function wrap(value) {
 }
 export function store(initValue) {
     if (!isWrappable(initValue)) {
-        throw new Error("Initial value must be an object");
+        throw new TypeError("Initial value must be a wrappable object");
     }
     return createRoot((dispose) => {
         const store = initValue;
-        store[SCOPE] = getCurrentScope();
-        store[CACHE] = getSignalCache(initValue);
-        store[DISPOSE] = dispose;
+        const scope = getCurrentScope();
+        const cache = getSignalCache(initValue);
+        store[SCOPE] = scope;
+        store[CACHE] = cache;
+        const disposer = () => {
+            cache.clear();
+            dispose();
+        };
+        onCleanup(disposer);
+        store[DISPOSE] = disposer;
         return wrap(store);
     });
 }

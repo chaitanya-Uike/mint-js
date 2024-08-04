@@ -13,6 +13,7 @@ export interface SignalCache {
   delete(key: PropertyKey): void;
   has(key: PropertyKey): boolean;
   size(): number;
+  clear(): void;
   [Symbol.iterator](): Iterator<[string, Reactive]>;
 }
 
@@ -42,6 +43,9 @@ class ObjectCache implements SignalCache {
   }
   size(): number {
     return this.cache.size;
+  }
+  clear() {
+    this.cache.clear();
   }
   *[Symbol.iterator](): Iterator<[string, Reactive]> {
     for (const [key, entry] of this.cache) {
@@ -102,6 +106,10 @@ class ArrayCache implements SignalCache {
       this.arrayCache.filter((entry) => entry !== undefined).length +
       this.objectCache.size()
     );
+  }
+  clear(): void {
+    this.arrayCache.length = 0;
+    this.objectCache.clear();
   }
   *[Symbol.iterator](): Iterator<[string, Reactive]> {
     for (let i = 0; i < this.arrayCache.length; i++) {

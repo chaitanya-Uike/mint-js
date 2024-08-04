@@ -27,6 +27,9 @@ class ObjectCache {
     size() {
         return this.cache.size;
     }
+    clear() {
+        this.cache.clear();
+    }
     *[Symbol.iterator]() {
         for (const [key, entry] of this.cache) {
             yield [String(key), entry.value];
@@ -87,6 +90,10 @@ class ArrayCache {
     size() {
         return (this.arrayCache.filter((entry) => entry !== undefined).length +
             this.objectCache.size());
+    }
+    clear() {
+        this.arrayCache.length = 0;
+        this.objectCache.clear();
     }
     *[Symbol.iterator]() {
         for (let i = 0; i < this.arrayCache.length; i++) {
