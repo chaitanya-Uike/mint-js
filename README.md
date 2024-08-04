@@ -1,6 +1,38 @@
-# Mint-js
+# Mint-js Comprehensive Guide
 
-Mint-js is a lightweight, fine-grained reactive frontend library designed for efficient and flexible state management in web applications.
+## Table of Contents
+
+1. [Introduction](#introduction)
+2. [Installation](#installation)
+3. [Core Concepts](#core-concepts)
+   - [Signal](#signal)
+   - [Effect](#effect)
+   - [onCleanup](#oncleanup)
+   - [Flush](#flush)
+   - [Roots](#roots)
+   - [unTrack](#untrack)
+4. [Reactive Objects](#reactive-objects)
+5. [Store](#store)
+6. [DOM Composition](#dom-composition-in-mint-js)
+   - [Basic Usage](#basic-usage)
+   - [Syntax Highlighting](#syntax-highlighting)
+   - [Dynamic Content](#dynamic-content)
+   - [Attributes and Properties](#attributes-and-properties)
+   - [Reactive Contexts](#reactive-contexts)
+   - [Conditional Rendering](#conditional-rendering)
+   - [Event Handling](#event-handling)
+   - [Controlled Inputs](#controlled-inputs)
+   - [Components](#components)
+   - [Children](#children)
+   - [Array Rendering and Reactive Lists](#array-rendering-and-reactive-lists)
+7. [Examples](#examples)
+   - [Tic-Tac-Toe Game](#1-tic-tac-toe-game)
+   - [Todo List with Filtering](#2-todo-list-with-filtering)
+   - [Counter with Local Storage Persistence](#3-counter-with-local-storage-persistence)
+
+## Introduction
+
+Mint-js is a lightweight, fine-grained reactive frontend library designed for efficient and flexible state management in web applications. It provides a simple yet powerful API for creating reactive user interfaces without the need for complex build processes or heavy framework dependencies.
 
 ## Installation
 
@@ -9,6 +41,8 @@ To install Mint-js, run the following command in your terminal:
 ```bash
 npm i https://github.com/chaitanya-Uike/mint-js
 ```
+
+# Core Concepts
 
 ## Signal
 
@@ -377,6 +411,7 @@ Mint-js provides a powerful and intuitive way to create and manipulate DOM eleme
 8. [Controlled Inputs](#controlled-inputs)
 9. [Components](#components)
 10. [Children](#children)
+11. [Array Rendering and Reactive Lists](#array-rendering-and-reactive-lists)
 
 ## Basic Usage
 
@@ -413,6 +448,18 @@ document.getElementById("app").appendChild(greeting);
 name.set("Bob");
 ```
 
+heres a simple timer example
+
+```javascript
+import { html, signal } from "mint-js";
+
+const time = signal(0);
+
+setInterval(() => time.set((t) => t + 1), 1000);
+
+document.getElementById("app").appendChild(html`<h1>time: ${time}</h1>`);
+```
+
 ## Attributes and Properties
 
 Both attributes and properties can be set dynamically:
@@ -433,6 +480,7 @@ buttonText.set("Try again");
 ```
 
 Note: When using signals as properties or children, you don't need to call the signal getter.
+but when using `store` properties you need to use functions to enable reactivity.
 
 ## Reactive Contexts
 
@@ -568,3 +616,428 @@ document.getElementById("app").appendChild(html`
 ```
 
 Note: You can close a component tag using `<//>` and `</${CompName}>`.
+
+## Array Rendering and Reactive Lists
+
+Mint-js provides powerful capabilities for rendering arrays of children and optimizing list rendering with the `reactiveMap` function.
+
+### Basic Array Rendering
+
+You can render an array of elements directly within the `html` template:
+
+```javascript
+const items = ["Apple", "Banana", "Cherry"];
+
+const list = html`
+  <ul>
+    ${items.map((item) => html`<li>${item}</li>`)}
+  </ul>
+`;
+```
+
+### Optimized List Rendering with `reactiveMap`
+
+The `reactiveMap` function provides an optimized way to render reactive lists. It efficiently updates only the parts of the list that have changed, rather than re-rendering the entire list. Importantly, `reactiveMap` uses referential equality to track changes, eliminating the need for explicit keys.
+
+```javascript
+import { html, store, reactiveMap } from "mint-js";
+
+const todos = store([
+  { id: 1, text: "Learn Mint-js", completed: false },
+  { id: 2, text: "Build an app", completed: false },
+]);
+
+function TodoList() {
+  return html`
+    <ul>
+      ${reactiveMap(
+        todos,
+        (todo) => html`
+          <li>
+            <input
+              type="checkbox"
+              checked=${todo.completed}
+              onChange=${() => (todo.completed = !todo.completed)}
+            />
+            ${todo.text}
+          </li>
+        `
+      )}
+    </ul>
+  `;
+}
+```
+
+Key points about `reactiveMap`:
+
+1. The first argument is the store or signal containing the array.
+2. The second argument is a mapping function that returns the `html` template for each item.
+3. `reactiveMap` uses referential equality to track changes, so you don't need to provide explicit keys.
+4. It efficiently updates only the parts of the list that have changed.
+
+### Signals vs Stores for Arrays
+
+While signal arrays can be used for reactive lists, it's generally recommended to use store arrays instead. Store arrays provide fine-grained reactivity, which can lead to better performance and more predictable behavior in complex applications.
+
+Benefits of using store arrays:
+
+1. Fine-grained reactivity: Only the specific elements that change will trigger updates.
+2. Direct mutations: You can directly modify properties of array elements without creating new objects.
+3. Improved performance: Especially noticeable in large lists or complex data structures.
+
+### Dynamic List Modifications
+
+With store arrays, you can easily modify the list and the UI will update accordingly:
+
+```javascript
+const todos = store([
+  { id: 1, text: "Learn Mint-js", completed: false },
+  { id: 2, text: "Build an app", completed: false },
+]);
+
+function addTodo(text) {
+  todos.push({ id: Date.now(), text, completed: false });
+}
+
+function removeTodo(id) {
+  const index = todos.findIndex((todo) => todo.id === id);
+  if (index !== -1) todos.splice(index, 1);
+}
+
+function TodoList() {
+  return html`
+    <ul>
+      ${reactiveMap(
+        todos,
+        (todo) => html`
+          <li>
+            <input
+              type="checkbox"
+              checked=${todo.completed}
+              onChange=${() => (todo.completed = !todo.completed)}
+            />
+            ${todo.text}
+          </li>
+        `
+      )}
+    </ul>
+  `;
+}
+```
+
+### Nested Reactive Lists
+
+`reactiveMap` can also handle nested reactive lists efficiently:
+
+```javascript
+const categories = store([
+  { id: 1, name: "Fruits", items: ["Apple", "Banana", "Cherry"] },
+  { id: 2, name: "Vegetables", items: ["Carrot", "Broccoli", "Spinach"] },
+]);
+
+function CategoryList() {
+  return html`
+    <div>
+      ${reactiveMap(
+        categories,
+        (category) => html`
+          <div>
+            <h2>${category.name}</h2>
+            <ul>
+              ${reactiveMap(
+                () => category.items,
+                (item) => html` <li>${item}</li> `
+              )}
+            </ul>
+          </div>
+        `
+      )}
+    </div>
+  `;
+}
+```
+
+In this example, both the categories and their items are reactively rendered without the need for explicit keys, benefiting from the fine-grained reactivity of stores.
+
+### Performance Considerations
+
+When working with large lists, consider the following tips:
+
+1. Use store arrays for optimal fine-grained reactivity.
+2. Utilize `reactiveMap` for efficient rendering of dynamic lists.
+3. Leverage the referential equality feature of `reactiveMap` for efficient updates.
+4. For very large lists, consider implementing pagination or virtual scrolling to render only visible items.
+5. Avoid unnecessary re-renders by using memoization techniques for complex item rendering functions if needed.
+
+By leveraging store arrays and `reactiveMap` for reactive lists, you can create efficient and performant list-based UIs in Mint-js without the need for explicit key management, while benefiting from fine-grained reactivity.
+
+[... previous content remains the same ...]
+
+## Examples
+
+To help solidify your understanding of Mint-js and its features, here are some complete example components that demonstrate various aspects of the library.
+
+### 1. Tic-Tac-Toe Game
+
+This example showcases the use of stores, signals, and derived signals in a interactive game component.
+
+```typescript
+import { html, store, signal } from "mint-js";
+
+type Player = "X" | "O" | null;
+type Board = Player[];
+
+export default function TicTacToe() {
+  const board = store<Board>(Array(9).fill(null));
+  const currentPlayer = signal<Player>("X");
+  const gameStatus = signal<"playing" | "won" | "draw">("playing");
+
+  const winningCombos = [
+    [0, 1, 2],
+    [3, 4, 5],
+    [6, 7, 8],
+    [0, 3, 6],
+    [1, 4, 7],
+    [2, 5, 8],
+    [0, 4, 8],
+    [2, 4, 6],
+  ];
+
+  const winner = signal(() => {
+    for (let combo of winningCombos) {
+      const [a, b, c] = combo;
+      if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+        return board[a];
+      }
+    }
+    return null;
+  });
+
+  const isDraw = signal(
+    () => board.every((cell) => cell !== null) && !winner()
+  );
+
+  const gameMessage = signal(() => {
+    if (winner()) return `Player ${winner()} wins!`;
+    if (isDraw()) return "It's a draw!";
+    return `Current player: ${currentPlayer()}`;
+  });
+
+  function handleCellClick(index: number) {
+    if (board[index] || gameStatus() !== "playing") return;
+
+    board[index] = currentPlayer();
+
+    if (winner()) {
+      gameStatus.set("won");
+    } else if (isDraw()) {
+      gameStatus.set("draw");
+    } else {
+      currentPlayer.set(currentPlayer() === "X" ? "O" : "X");
+    }
+  }
+
+  function resetGame() {
+    for (let i = 0; i < 9; i++) {
+      board[i] = null;
+    }
+    currentPlayer.set("X");
+    gameStatus.set("playing");
+  }
+
+  return html`
+    <div
+      class="flex flex-col items-center justify-center min-h-screen bg-gray-100"
+    >
+      <h1 class="text-4xl font-bold mb-8 text-gray-800">Tic Tac Toe</h1>
+      <div class="grid grid-cols-3 gap-2 mb-4">
+        ${Array(9)
+          .fill(null)
+          .map(
+            (_, index) => html`
+              <button
+                onClick=${() => handleCellClick(index)}
+                class="w-20 h-20 bg-white text-4xl font-bold flex items-center justify-center border-2 border-gray-300 rounded-lg hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                ${() => board[index]}
+              </button>
+            `
+          )}
+      </div>
+      <div class="text-2xl font-semibold mb-4 text-gray-700">
+        ${gameMessage}
+      </div>
+      <button
+        onClick=${resetGame}
+        class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+      >
+        Reset Game
+      </button>
+    </div>
+  `;
+}
+```
+
+This example demonstrates:
+
+- Use of `store` for the game board
+- Use of `signal` for game state
+- Derived signals for winner and draw conditions
+- Event handling with `onClick`
+- Conditional rendering based on game state
+
+### 2. Todo List with Filtering
+
+This example shows how to create a todo list with filtering capabilities, demonstrating the use of stores, signals, and reactive rendering.
+
+```typescript
+import { html, store, signal, reactiveMap } from "mint-js";
+
+type Todo = { id: number; text: string; completed: boolean };
+
+export default function TodoList() {
+  const todos = store<Todo[]>([]);
+  const filter = signal<"all" | "active" | "completed">("all");
+
+  const filteredTodos = signal(() => {
+    switch (filter()) {
+      case "active":
+        return todos.filter((todo) => !todo.completed);
+      case "completed":
+        return todos.filter((todo) => todo.completed);
+      default:
+        return todos;
+    }
+  });
+
+  function addTodo(text: string) {
+    todos.push({ id: Date.now(), text, completed: false });
+  }
+
+  function toggleTodo(id: number) {
+    const todo = todos.find((t) => t.id === id);
+    if (todo) todo.completed = !todo.completed;
+  }
+
+  function removeTodo(id: number) {
+    const index = todos.findIndex((t) => t.id === id);
+    if (index !== -1) todos.splice(index, 1);
+  }
+
+  return html`
+    <div class="max-w-md mx-auto mt-10 p-6 bg-white rounded-lg shadow-xl">
+      <h1 class="text-2xl font-bold mb-4">Todo List</h1>
+      <input
+        type="text"
+        placeholder="Add new todo"
+        onKeyPress=${(e: KeyboardEvent) => {
+          if (e.key === "Enter") {
+            addTodo((e.target as HTMLInputElement).value);
+            (e.target as HTMLInputElement).value = "";
+          }
+        }}
+        class="w-full p-2 border rounded mb-4"
+      />
+      <div class="mb-4">
+        <button
+          onClick=${() => filter.set("all")}
+          class="mr-2 px-2 py-1 bg-blue-500 text-white rounded"
+        >
+          All
+        </button>
+        <button
+          onClick=${() => filter.set("active")}
+          class="mr-2 px-2 py-1 bg-green-500 text-white rounded"
+        >
+          Active
+        </button>
+        <button
+          onClick=${() => filter.set("completed")}
+          class="px-2 py-1 bg-red-500 text-white rounded"
+        >
+          Completed
+        </button>
+      </div>
+      <ul>
+        ${reactiveMap(
+          filteredTodos,
+          (todo) => html`
+            <li class="flex items-center justify-between mb-2">
+              <span class=${() => (todo.completed ? "line-through" : "")}>
+                ${todo.text}
+              </span>
+              <div>
+                <button
+                  onClick=${() => toggleTodo(todo.id)}
+                  class="mr-2 px-2 py-1 bg-yellow-500 text-white rounded"
+                >
+                  Toggle
+                </button>
+                <button
+                  onClick=${() => removeTodo(todo.id)}
+                  class="px-2 py-1 bg-red-500 text-white rounded"
+                >
+                  Delete
+                </button>
+              </div>
+            </li>
+          `
+        )}
+      </ul>
+    </div>
+  `;
+}
+```
+
+This example demonstrates:
+
+- Use of `store` for the todo list
+- Use of `signal` for filtering
+- Derived signal for filtered todos
+- Event handling for adding, toggling, and removing todos
+- Use of `reactiveMap` for efficient list rendering
+
+### 3. Counter with Local Storage Persistence
+
+This example shows how to create a simple counter that persists its state in local storage, demonstrating the use of effects and signals.
+
+```typescript
+import { html, signal, effect } from "mint-js";
+
+export default function PersistentCounter() {
+  const count = signal(parseInt(localStorage.getItem("count") || "0"));
+
+  effect(() => {
+    localStorage.setItem("count", count().toString());
+  });
+
+  return html`
+    <div class="flex flex-col items-center justify-center h-screen bg-gray-100">
+      <h1 class="text-4xl font-bold mb-4">Persistent Counter</h1>
+      <p class="text-2xl mb-4">Count: ${count}</p>
+      <div>
+        <button
+          onClick=${() => count.set((c) => c - 1)}
+          class="px-4 py-2 bg-red-500 text-white rounded mr-2"
+        >
+          Decrease
+        </button>
+        <button
+          onClick=${() => count.set((c) => c + 1)}
+          class="px-4 py-2 bg-green-500 text-white rounded"
+        >
+          Increase
+        </button>
+      </div>
+    </div>
+  `;
+}
+```
+
+This example demonstrates:
+
+- Use of `signal` for state management
+- Use of `effect` for side effects (local storage persistence)
+- Event handling for increasing and decreasing the counter
+
+These examples showcase different aspects of Mint-js, including state management with stores and signals, derived signals, reactive rendering, event handling, and side effects. They provide a practical demonstration of how these concepts come together to create interactive and efficient web applications.
