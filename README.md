@@ -360,3 +360,211 @@ effect(() => {
 ```
 
 By using stores, you can create reactive objects with fine-grained reactivity while maintaining a clean and intuitive API. This approach simplifies state management in complex applications and helps avoid common pitfalls associated with manual signal creation for object properties.
+
+# DOM Composition in Mint-js
+
+Mint-js provides a powerful and intuitive way to create and manipulate DOM elements using the `html` tagged template function. This approach offers JSX-like features without any build-time dependencies, enabling easy creation of dynamic and reactive user interfaces.
+
+## Table of Contents
+
+1. [Basic Usage](#basic-usage)
+2. [Syntax Highlighting](#syntax-highlighting)
+3. [Dynamic Content](#dynamic-content)
+4. [Attributes and Properties](#attributes-and-properties)
+5. [Reactive Contexts](#reactive-contexts)
+6. [Conditional Rendering](#conditional-rendering)
+7. [Event Handling](#event-handling)
+8. [Controlled Inputs](#controlled-inputs)
+9. [Components](#components)
+10. [Children](#children)
+
+## Basic Usage
+
+The `html` tagged template function creates DOM elements using a syntax that closely resembles HTML:
+
+```javascript
+import { html } from "mint-js";
+
+const div = html`<div>Hello World!</div>`;
+document.getElementById("app").appendChild(div);
+```
+
+This creates an actual DOM element that can be directly appended to the document.
+
+## Syntax Highlighting
+
+For an enhanced development experience, use the lit-html extension for Visual Studio Code. It provides syntax highlighting for `html` tagged template literals:
+
+[lit-html VS Code Extension](https://marketplace.visualstudio.com/items?itemName=bierner.lit-html)
+
+## Dynamic Content
+
+The `html` function seamlessly incorporates dynamic content using `${}` notation:
+
+```javascript
+import { html, signal } from "mint-js";
+
+const name = signal("Alice");
+const greeting = html`<h1>Hello, ${name}!</h1>`;
+
+document.getElementById("app").appendChild(greeting);
+
+// Updating the signal automatically updates the DOM
+name.set("Bob");
+```
+
+## Attributes and Properties
+
+Both attributes and properties can be set dynamically:
+
+```javascript
+const isDisabled = signal(false);
+const buttonText = signal("Click me");
+
+const button = html`
+  <button disabled=${isDisabled} onClick=${() => console.log("Clicked!")}>
+    ${buttonText}
+  </button>
+`;
+
+// Later updates automatically reflect in the DOM
+isDisabled.set(true);
+buttonText.set("Try again");
+```
+
+Note: When using signals as properties or children, you don't need to call the signal getter.
+
+## Reactive Contexts
+
+Create reactive contexts inside the `html` function using arrow functions:
+
+```javascript
+const show = signal(false);
+html`<div style=${{ color: () => (show() ? "red" : "blue") }}>
+  Hello World!
+</div>`;
+
+show.set(true); // Updates the div's color
+```
+
+Dynamic class names:
+
+```javascript
+html`
+  <h1
+    className=${() => `text-3xl ${show() ? "text-red-500" : "text-blue-500"}`}
+  >
+    Hello, ${name}!
+  </h1>
+`;
+```
+
+## Conditional Rendering
+
+Use functions for reactive conditional rendering:
+
+```javascript
+const isLoggedIn = signal(false);
+const username = signal("");
+
+const loginStatus = html`
+  ${() =>
+    isLoggedIn()
+      ? html`<p>Welcome, ${username}!</p>`
+      : html`<p>Please log in.</p>`}
+`;
+
+// Later updates change the rendered content
+isLoggedIn.set(true);
+username.set("Alice");
+```
+
+## Event Handling
+
+Handle events easily:
+
+```javascript
+const counter = signal(0);
+
+const counterButton = html`
+  <button onClick=${() => counter.set((c) => c + 1)}>Clicks: ${counter}</button>
+`;
+```
+
+## Controlled Inputs
+
+Create controlled inputs with ease:
+
+```javascript
+const name = signal("");
+html`<input value=${name} onInput=${(e) => name.set(e.target.value)} />`;
+```
+
+## Components
+
+Modularize your code by creating components. Components are functions that return DOM nodes and can have their own internal state:
+
+```javascript
+function Counter() {
+  const count = signal(0);
+
+  return html`<div>
+    <button onClick=${() => count.set((c) => c - 1)}>-</button>
+    ${count}
+    <button onClick=${() => count.set((c) => c + 1)}>+</button>
+  </div>`;
+}
+
+function App() {
+  return html`<div><${Counter} /></div>`;
+}
+```
+
+### Passing Props
+
+Pass props to components:
+
+```javascript
+function Greet({ firstName, lastName }) {
+  const fullName = signal(() => `${firstName()} ${lastName()}`);
+  return html`<h1>Hello! ${fullName}</h1>`;
+}
+
+function App() {
+  const firstName = signal("John");
+  const lastName = signal("Doe");
+  return html`<div>
+    <${Greet} firstName=${firstName} lastName=${lastName} />
+  </div>`;
+}
+```
+
+Use the spread syntax for easier prop passing:
+
+```javascript
+function App() {
+  const firstName = signal("John");
+  const lastName = signal("Doe");
+  return html`<div><${Greet} ...${{ firstName, lastName }} /></div>`;
+}
+```
+
+## Children
+
+The `children` prop is an array of child components:
+
+```javascript
+function App({ children }) {
+  return html`<div>${children}</div>`;
+}
+
+document.getElementById("app").appendChild(html`
+  <${App}>
+    <${Header} />
+    <${Main} />
+    <${Footer} />
+  <//>
+`);
+```
+
+Note: You can close a component tag using `<//>` and `</${CompName}>`.
