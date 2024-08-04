@@ -29,7 +29,7 @@
    - [Tic-Tac-Toe Game](#1-tic-tac-toe-game)
    - [Todo List with Filtering](#2-todo-list-with-filtering)
    - [Counter with Local Storage Persistence](#3-counter-with-local-storage-persistence)
-8. [Status and Development](#status)
+8. [Status and Development](#status-and-development)
 
 ## Introduction
 
