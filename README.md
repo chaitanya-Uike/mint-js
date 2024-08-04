@@ -1,4 +1,4 @@
-# Mint-js Comprehensive Guide
+# Mint-js Guide
 
 ## Table of Contents
 
@@ -29,6 +29,7 @@
    - [Tic-Tac-Toe Game](#1-tic-tac-toe-game)
    - [Todo List with Filtering](#2-todo-list-with-filtering)
    - [Counter with Local Storage Persistence](#3-counter-with-local-storage-persistence)
+8. [Status and Development](#status)
 
 ## Introduction
 
@@ -1041,3 +1042,8 @@ This example demonstrates:
 - Event handling for increasing and decreasing the counter
 
 These examples showcase different aspects of Mint-js, including state management with stores and signals, derived signals, reactive rendering, event handling, and side effects. They provide a practical demonstration of how these concepts come together to create interactive and efficient web applications.
+
+## Status and Development
+
+Mint-js is currently under active development. While the library is evolving, the core API mentioned in
+the doc will largely remain the same. Mint-js serves as an excellent tool for learning about reactive programming and modern frontend development
