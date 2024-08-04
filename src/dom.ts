@@ -251,6 +251,8 @@ function handleProps(element: HTMLElement, props: Props): void {
       element.addEventListener(event, value);
     } else if (key === "style" && typeof value === "object") {
       handleStyleObject(element, value as StyleObject);
+    } else if (key === "ref" && typeof value === "function") {
+      value(element);
     } else {
       handleAttribute(element, key, value);
     }
