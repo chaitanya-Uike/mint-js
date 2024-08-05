@@ -94,6 +94,7 @@ count.set(5); // This will trigger the effect, logging: "The count is now 5"
 ```
 
 #### Note
+
 effects run immediately on initialization, further executions are scheduled on the microtask queue for async execution.
 
 ### Cleanup Functions
@@ -686,7 +687,7 @@ function TodoList() {
           <li>
             <input
               type="checkbox"
-              checked=${todo.completed}
+              checked=${() => todo.completed}
               onChange=${() => (todo.completed = !todo.completed)}
             />
             ${todo.text}
@@ -743,7 +744,7 @@ function TodoList() {
           <li>
             <input
               type="checkbox"
-              checked=${todo.completed}
+              checked=${() => todo.completed}
               onChange=${() => (todo.completed = !todo.completed)}
             />
             ${todo.text}
@@ -991,7 +992,10 @@ export default function TodoList() {
           filteredTodos,
           (todo) => html`
             <li class="flex items-center justify-between mb-2">
-              <span class=${() => (todo.completed ? "line-through" : "")}>
+              <span
+                class=${() =>
+                  todo.completed ? "line-through text-gray-500" : ""}
+              >
                 ${todo.text}
               </span>
               <div>
