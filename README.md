@@ -93,6 +93,9 @@ effect(() => {
 count.set(5); // This will trigger the effect, logging: "The count is now 5"
 ```
 
+#### Note
+effects run immediately on initialization, further executions are scheduled on the microtask queue for async execution.
+
 ### Cleanup Functions
 
 Effects can return a cleanup function that runs before each re-execution and when the effect is disposed:
