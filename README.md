@@ -18,6 +18,7 @@
    - [Syntax Highlighting](#syntax-highlighting)
    - [Dynamic Content](#dynamic-content)
    - [Attributes and Properties](#attributes-and-properties)
+   - [Signals vs Stores in Mint-js Templates](#signals-vs-stores-in-mint-js-templates)
    - [Reactive Contexts](#reactive-contexts)
    - [Conditional Rendering](#conditional-rendering)
    - [Event Handling](#event-handling)
@@ -468,8 +469,45 @@ isDisabled.set(true);
 buttonText.set("Try again");
 ```
 
-Note: When using signals as properties or children, you don't need to call the signal getter.
-but when using `store` properties you need to use functions to enable reactivity.
+# Signals vs Stores in Mint-js Templates
+
+## Signals
+
+When using signals in template literals, you can reference them directly without calling them as functions. Mint-js automatically unwraps signals in these contexts.
+
+Example:
+
+```javascript
+const name = signal("Alice");
+html`<h1>Hello, ${name}</h1>`; // Correct: Signal is used directly
+```
+
+## Stores
+
+When using properties from a store, you must wrap them in a function (usually an arrow function) to create a reactive binding. This tells Mint-js to track changes to that specific property.
+
+Example:
+
+```javascript
+const user = store({ name: "Alice" });
+html`<h1>Hello, ${() => user.name}</h1>`; // Correct: Store property is wrapped in a function
+```
+
+## Important Distinctions
+
+- Signals: `${signalName}` (no function call needed)
+- Store properties: `${() => storeName.propertyName}` (function wrapper required)
+
+## Consistency in Reactivity
+
+- For signals: Both `${signalName}` and `${() => signalName()}` will work reactively.
+- For stores: Only `${() => storeName.propertyName}` ensures reactivity. Using `${storeName.propertyName}` directly will not track changes.
+
+## Best Practice
+
+To maintain consistency and avoid errors, it's recommended to always use arrow functions when accessing store properties in templates, even if you're also using signals in the same template.
+
+**Note:** This behavior applies specifically to how signals and stores are used within Mint-js template literals (the `html` tagged template function). In other contexts, such as within regular JavaScript code, you would still need to call signals as functions to get their current value.
 
 ## Reactive Contexts
 
