@@ -52,6 +52,9 @@ export class ReactiveNode {
     get state() {
         return this._state;
     }
+    get scope() {
+        return this._scope;
+    }
     updateIfRequired() {
         if (this._state === CacheState.Check && this.sources) {
             for (const source of this.sources) {
@@ -148,13 +151,16 @@ function suspendTracking(newObserver = null) {
     const currContext = {
         currentObserver,
         newSources: newSources,
+        scope,
     };
     currentObserver = newObserver;
     newSources = null;
+    if (newObserver && newObserver.scope !== undefined)
+        scope = newObserver.scope;
     return currContext;
 }
 function resumeTracking(context) {
-    ({ currentObserver, newSources: newSources } = context);
+    ({ currentObserver, newSources, scope } = context);
 }
 export function flush() {
     for (let i = 0; i < effectsQueue.length; i++) {
@@ -201,6 +207,7 @@ export class Root {
     children;
     parentScope;
     disposed = false;
+    context = {};
     constructor() {
         this.children = new Set();
         this.parentScope = scope;
@@ -231,6 +238,14 @@ export class Root {
     removeChild(child) {
         return this.children.delete(child);
     }
+    setContext(key, value) {
+        this.context[key] = value;
+    }
+    getContext(key) {
+        if (this.context[key] !== undefined)
+            return this.context[key];
+        return this.parentScope ? this.parentScope.getContext(key) : null;
+    }
 }
 export function createRoot(fn) {
     const root = new Root();
@@ -251,4 +266,12 @@ export function createReactive(initValue, effect = false, parentScope) {
         }
     }
     return new ReactiveNode(initValue, effect);
+}
+export function setContext(key, value) {
+    const currScope = getCurrentScope();
+    currScope && currScope.setContext(key, value);
+}
+export function getContext(key) {
+    const currScope = getCurrentScope();
+    return currScope ? currScope.getContext(key) : null;
 }

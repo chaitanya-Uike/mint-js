@@ -64,6 +64,10 @@ export class ReactiveNode<T = any> implements Disposable {
     return this._state;
   }
 
+  get scope() {
+    return this._scope;
+  }
+
   private updateIfRequired() {
     if (this._state === CacheState.Check && this.sources) {
       for (const source of this.sources) {
@@ -169,17 +173,20 @@ function suspendTracking(newObserver: ReactiveNode | null = null) {
   const currContext = {
     currentObserver,
     newSources: newSources,
+    scope,
   };
   currentObserver = newObserver;
   newSources = null;
+  if (newObserver && newObserver.scope !== undefined) scope = newObserver.scope;
   return currContext;
 }
 
 function resumeTracking(context: {
   currentObserver: ReactiveNode | null;
   newSources: Set<ReactiveNode> | null;
+  scope: Root | null;
 }) {
-  ({ currentObserver, newSources: newSources } = context);
+  ({ currentObserver, newSources, scope } = context);
 }
 
 export function flush() {
@@ -227,6 +234,7 @@ export class Root implements Disposable {
   private children: Set<Disposable>;
   private parentScope: Root | null;
   private disposed: boolean = false;
+  private context: Record<string, any> = {};
 
   constructor() {
     this.children = new Set();
@@ -258,6 +266,15 @@ export class Root implements Disposable {
   removeChild(child: Disposable) {
     return this.children.delete(child);
   }
+
+  setContext(key: string, value: any) {
+    this.context[key] = value;
+  }
+
+  getContext(key: string): any {
+    if (this.context[key] !== undefined) return this.context[key];
+    return this.parentScope ? this.parentScope.getContext(key) : null;
+  }
 }
 
 export function createRoot<T = any>(fn: (dispose: () => void) => T): T {
@@ -284,4 +301,14 @@ export function createReactive<T>(
     }
   }
   return new ReactiveNode(initValue, effect);
+}
+
+export function setContext(key: string, value: any) {
+  const currScope = getCurrentScope();
+  currScope && currScope.setContext(key, value);
+}
+
+export function getContext(key: string): any {
+  const currScope = getCurrentScope();
+  return currScope ? currScope.getContext(key) : null;
 }
