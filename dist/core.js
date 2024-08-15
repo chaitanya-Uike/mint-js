@@ -129,6 +129,7 @@ export class ReactiveNode {
     dispose() {
         if (this._state === CacheState.Disposed)
             return;
+        console.log("reactive disposed", this);
         this._state = CacheState.Disposed;
         this.handleCleanup();
         if (this.sources) {
@@ -220,6 +221,7 @@ export class Root {
     dispose() {
         if (this.disposed)
             return;
+        console.log("root disposed", this);
         for (const child of this.children)
             child.dispose();
         this.children.clear();
@@ -266,6 +268,18 @@ export function createReactive(initValue, effect = false, parentScope) {
         }
     }
     return new ReactiveNode(initValue, effect);
+}
+export function bindToScope(fn, newScope) {
+    return () => {
+        const prevScope = scope;
+        scope = newScope;
+        try {
+            return fn();
+        }
+        finally {
+            scope = prevScope;
+        }
+    };
 }
 export function setContext(key, value) {
     const currScope = getCurrentScope();

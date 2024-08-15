@@ -25,9 +25,10 @@ export default function* lexer(
   }
 
   for (let idx = 0; idx < strings.length + values.length; idx++) {
-    const piece = (idx % 2 === 1 ? values : strings)[Math.floor(idx / 2)];
+    const interpolation = idx % 2 === 1;
+    const piece = (interpolation ? values : strings)[Math.floor(idx / 2)];
 
-    if (typeof piece === "string") {
+    if (!interpolation) {
       for (const char of piece) {
         if (isSpecialChar(char)) {
           for (const token of flushBuffer("WHITE_SPACE", spaceBuffer)) {

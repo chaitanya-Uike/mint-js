@@ -46,12 +46,13 @@ export declare class Root implements Disposable {
     dispose(): void;
     execute<T>(fn: (dispose: () => void) => T): T;
     removeChild(child: Disposable): boolean;
-    setContext(key: string, value: any): void;
-    getContext(key: string): any;
+    setContext(key: PropertyKey, value: any): void;
+    getContext(key: PropertyKey): any;
 }
 export declare function createRoot<T = any>(fn: (dispose: () => void) => T): T;
 export declare function getCurrentScope(): Root | null;
 export declare function createReactive<T>(initValue: (() => T) | T, effect?: boolean, parentScope?: Root | null): ReactiveNode<T>;
-export declare function setContext(key: string, value: any): void;
-export declare function getContext(key: string): any;
+export declare function bindToScope<T = any>(fn: () => T, newScope: Root): () => T;
+export declare function setContext(key: PropertyKey, value: any): void;
+export declare function getContext<T>(key: PropertyKey): T | null;
 export {};

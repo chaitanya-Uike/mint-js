@@ -315,10 +315,8 @@ function getPropSetter(element: HTMLElement, key: string) {
 }
 
 export function component(fn: ComponentFunction, props: Props): Node {
-  return unTrack(() => {
-    return createRoot((dispose) => {
-      onCleanup(dispose);
-      return fn(props);
-    });
+  return createRoot((dispose) => {
+    onCleanup(dispose);
+    return unTrack(() => fn(props));
   });
 }

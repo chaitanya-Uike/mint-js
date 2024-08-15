@@ -1,4 +1,4 @@
-import { effect, createRoot, unTrack, onCleanup } from "./core";
+import { effect, createRoot, unTrack, onCleanup, } from "./core";
 import { isSignal } from "./signals";
 import { isFunction } from "./utils";
 const getProto = Object.getPrototypeOf;
@@ -27,6 +27,7 @@ function appendChildren(element, children) {
             element.appendChild(child);
         }
         else if (typeof child === "function") {
+            console.log("function", child);
             let markers = [null, null];
             effect(() => {
                 markers = handleDynamicChild(element, child(), markers[0], markers[1]);
@@ -298,10 +299,8 @@ function getPropSetter(element, key) {
     return setter ? setter.bind(element) : undefined;
 }
 export function component(fn, props) {
-    return unTrack(() => {
-        return createRoot((dispose) => {
-            onCleanup(dispose);
-            return fn(props);
-        });
+    return createRoot((dispose) => {
+        onCleanup(dispose);
+        return unTrack(() => fn(props));
     });
 }

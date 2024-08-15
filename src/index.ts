@@ -11,3 +11,4 @@ export {
   getContext,
   setContext,
 } from "./core";
+export * from "./types";
