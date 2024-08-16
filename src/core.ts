@@ -84,12 +84,15 @@ export class ReactiveNode<T = any> implements Disposable {
   private update() {
     const context = suspendTracking(this);
     const oldValue = this.value;
+    const prevScope = scope;
+    scope = this._scope;
     try {
       this.handleCleanup();
       this.value = this.compute!();
       this.updateGraph();
     } finally {
       resumeTracking(context);
+      scope = prevScope;
     }
     if (oldValue !== this.value && this.observers) {
       for (const observer of this.observers) {
@@ -150,7 +153,6 @@ export class ReactiveNode<T = any> implements Disposable {
 
   dispose() {
     if (this._state === CacheState.Disposed) return;
-    console.log("reactive disposed", this);
     this._state = CacheState.Disposed;
     this.handleCleanup();
     if (this.sources) {
@@ -174,20 +176,17 @@ function suspendTracking(newObserver: ReactiveNode | null = null) {
   const currContext = {
     currentObserver,
     newSources: newSources,
-    scope,
   };
   currentObserver = newObserver;
   newSources = null;
-  if (newObserver && newObserver.scope !== undefined) scope = newObserver.scope;
   return currContext;
 }
 
 function resumeTracking(context: {
   currentObserver: ReactiveNode | null;
   newSources: Set<ReactiveNode> | null;
-  scope: Root | null;
 }) {
-  ({ currentObserver, newSources, scope } = context);
+  ({ currentObserver, newSources } = context);
 }
 
 export function flush() {
@@ -249,7 +248,6 @@ export class Root implements Disposable {
 
   dispose() {
     if (this.disposed) return;
-    console.log("root disposed", this);
     for (const child of this.children) child.dispose();
     this.children.clear();
     this.parentScope?.children.delete(this);

@@ -71,6 +71,8 @@ export class ReactiveNode {
     update() {
         const context = suspendTracking(this);
         const oldValue = this.value;
+        const prevScope = scope;
+        scope = this._scope;
         try {
             this.handleCleanup();
             this.value = this.compute();
@@ -78,6 +80,7 @@ export class ReactiveNode {
         }
         finally {
             resumeTracking(context);
+            scope = prevScope;
         }
         if (oldValue !== this.value && this.observers) {
             for (const observer of this.observers) {
@@ -129,7 +132,6 @@ export class ReactiveNode {
     dispose() {
         if (this._state === CacheState.Disposed)
             return;
-        console.log("reactive disposed", this);
         this._state = CacheState.Disposed;
         this.handleCleanup();
         if (this.sources) {
@@ -152,16 +154,13 @@ function suspendTracking(newObserver = null) {
     const currContext = {
         currentObserver,
         newSources: newSources,
-        scope,
     };
     currentObserver = newObserver;
     newSources = null;
-    if (newObserver && newObserver.scope !== undefined)
-        scope = newObserver.scope;
     return currContext;
 }
 function resumeTracking(context) {
-    ({ currentObserver, newSources, scope } = context);
+    ({ currentObserver, newSources } = context);
 }
 export function flush() {
     for (let i = 0; i < effectsQueue.length; i++) {
@@ -221,7 +220,6 @@ export class Root {
     dispose() {
         if (this.disposed)
             return;
-        console.log("root disposed", this);
         for (const child of this.children)
             child.dispose();
         this.children.clear();

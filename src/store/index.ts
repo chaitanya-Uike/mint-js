@@ -6,15 +6,18 @@ import { getSignalCache, SignalCache } from "./cache";
 const CACHE = Symbol("signal-cache");
 const SCOPE = Symbol("store-scope");
 
-export type Store<T extends object = object> = T & {
+export type StoreMetadata = {
   [SCOPE]: Root;
   [CACHE]: SignalCache;
   [DISPOSE]: Cleanup;
-  [key: PropertyKey]: any;
 };
+
+export type Store<T = any> = T & StoreMetadata;
 
 export type Reactive<T = any> = T extends Signal<any>
   ? T
+  : T extends Array<infer U>
+  ? Array<Reactive<U>>
   : T extends object
   ? Store<T>
   : Signal<T>;
@@ -152,9 +155,9 @@ function wrap<T extends object>(value: Store<T>): Store<T> {
   return proxy;
 }
 
-export function store<T extends object>(initValue: T): Store<T> {
+export function store<T extends object | any[]>(initValue: T): Store<T> {
   if (!isWrappable(initValue)) {
-    throw new TypeError("Initial value must be a wrappable object");
+    throw new TypeError("Initial value must be a object or array");
   }
 
   return createRoot((dispose) => {

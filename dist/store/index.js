@@ -118,7 +118,7 @@ function wrap(value) {
 }
 export function store(initValue) {
     if (!isWrappable(initValue)) {
-        throw new TypeError("Initial value must be a wrappable object");
+        throw new TypeError("Initial value must be a object or array");
     }
     return createRoot((dispose) => {
         const store = initValue;
