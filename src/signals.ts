@@ -1,4 +1,4 @@
-import { ReactiveNode, Root, createReactive, effect, onCleanup } from "./core";
+import { ReactiveNode, ScopeNode, createReactive } from "./core";
 import { DISPOSE, NODE } from "./constants";
 
 const SIGNAL = Symbol("signal");
@@ -26,7 +26,7 @@ export function memo<T>(fn: () => T): () => T {
 
 export function createSignalWithinScope<T>(
   initValue: T | (() => T),
-  scope?: Root
+  scope?: ScopeNode
 ) {
   const node = createReactive(initValue, false, scope);
   const signalFunction = function (): T {

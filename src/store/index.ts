@@ -1,5 +1,5 @@
 import { DISPOSE, NODE } from "../constants";
-import { Cleanup, createRoot, getCurrentScope, onCleanup, Root } from "../core";
+import { CleanupFn, createRoot, getCurrentScope, ScopeNode } from "../core";
 import { createSignalWithinScope, isSignal, Signal } from "../signals";
 import { getSignalCache, SignalCache } from "./cache";
 
@@ -7,9 +7,9 @@ const CACHE = Symbol("signal-cache");
 const SCOPE = Symbol("store-scope");
 
 export type StoreMetadata = {
-  [SCOPE]: Root;
+  [SCOPE]: ScopeNode;
   [CACHE]: SignalCache;
-  [DISPOSE]: Cleanup;
+  [DISPOSE]: CleanupFn;
 };
 
 export type Store<T = any> = T & StoreMetadata;
@@ -46,7 +46,7 @@ function isTrackable<T extends object>(
   );
 }
 
-function updateStoreScope(store: Store, scope: Root): void {
+function updateStoreScope(store: Store, scope: ScopeNode): void {
   if (store[SCOPE] === scope) return;
   for (const [, value] of store[CACHE]) {
     if (isSignal(value)) value[NODE].updateScope(scope);
@@ -169,7 +169,7 @@ export function store<T extends object | any[]>(initValue: T): Store<T> {
     store[SCOPE] = scope;
     store[CACHE] = cache;
 
-    scope.append({ dispose: cache.clear.bind(cache) });
+    // scope.append({ dispose: cache.clear.bind(cache) });
 
     store[DISPOSE] = dispose;
 

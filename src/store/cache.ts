@@ -1,10 +1,10 @@
 import { DISPOSE } from "../constants";
-import { Cleanup } from "../core";
+import { CleanupFn } from "../core";
 import { Reactive } from ".";
 
 type CacheEntry = {
   value: Reactive;
-  dispose: Cleanup;
+  dispose: CleanupFn;
 };
 
 export interface SignalCache {
