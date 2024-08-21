@@ -53,7 +53,7 @@ export class ScopeNode extends Disposable {
   }
 
   dispose(): void {
-    if (this._disposed) return;
+    if (this.disposed) return;
     for (const child of this.children) child.dispose();
     this.children.clear();
     super.dispose();
@@ -68,54 +68,43 @@ export class ScopeNode extends Disposable {
   }
 }
 
-export function flush() {
-  for (let i = 0; i < effectsQueue.length; i++) {
-    let effect = effectsQueue[i];
-    if (effect.state !== CacheState.Clean) {
-      const effectsChain = [effect];
-      effect.scope
-    }
-  }
-  effectsScheduled = false;
-}
-
-function scheduleEffect(effect: ReactiveNode<any>) {
-  effectsQueue.push(effect);
-  if (!effectsScheduled) {
-    effectsScheduled = true;
-    queueMicrotask(flush);
-  }
-}
-
 export type ComputeFn<T = any> = (prevVal: T) => T;
 export type CleanupFn = () => void;
 
-export class ReactiveNode<T = any> extends Disposable {
+export class ReactiveNode<T = any> extends ScopeNode {
   private value: T;
   private compute?: (prevVal?: T) => T;
   private _state: CacheState;
-  private effect: boolean;
+  private _effect: boolean;
   sources: Set<ReactiveNode> | null = null;
   observers: Set<ReactiveNode> | null = null;
   cleanups: CleanupFn[] = [];
+  label?: string;
 
-  constructor(initValue: (() => T) | T, effect = false) {
+  constructor(initValue: (() => T) | T, effect = false, label?: string) {
     super();
     this.compute = isFunction(initValue) ? initValue : undefined;
     this._state = this.compute ? CacheState.Dirty : CacheState.Clean;
     this.value = this.compute ? (undefined as any) : initValue;
-    this.effect = effect;
+    this._effect = effect;
     if (effect) scheduleEffect(this);
+    this.label = label;
   }
 
   get state() {
     return this._state;
   }
 
+  get effect() {
+    return this._effect;
+  }
+
   get(): T {
     if (this.disposed) return this.value;
-    if (!newSources) newSources = new Set();
-    newSources.add(this);
+    if (currentObserver && !this.effect) {
+      if (!newSources) newSources = new Set();
+      newSources.add(this);
+    }
     if (this.compute) this.updateIfRequired();
     return this.value;
   }
@@ -137,7 +126,7 @@ export class ReactiveNode<T = any> extends Disposable {
     }
   }
 
-  private updateIfRequired() {
+  updateIfRequired() {
     if (this._state === CacheState.Check && this.sources) {
       for (const source of this.sources) {
         source.updateIfRequired();
@@ -158,7 +147,7 @@ export class ReactiveNode<T = any> extends Disposable {
       this.updateGraph();
       return newValue;
     };
-    this.value = execute(fn, this, this.scope);
+    this.value = execute(fn, this, this);
     if (oldValue !== this.value && this.observers) {
       for (const observer of this.observers) {
         observer._state = CacheState.Dirty;
@@ -196,7 +185,7 @@ export class ReactiveNode<T = any> extends Disposable {
       this._state === CacheState.Clean ||
       (this._state === CacheState.Check && newState === CacheState.Dirty)
     ) {
-      if (this._state === CacheState.Clean && this.effect) {
+      if (this._effect) {
         scheduleEffect(this);
       }
       this._state = newState;
@@ -213,6 +202,7 @@ export class ReactiveNode<T = any> extends Disposable {
 
   dispose() {
     if (this.disposed) return;
+    super.dispose();
     this.handleCleanup();
     if (this.sources) {
       for (const source of this.sources) {
@@ -221,7 +211,6 @@ export class ReactiveNode<T = any> extends Disposable {
     }
     this.sources = null;
     this.observers = null;
-    super.dispose();
   }
 }
 
@@ -247,25 +236,25 @@ function execute<T = any>(
   }
 }
 
-export function effect(fn: () => any | (() => void)) {
-  const scope = new ScopeNode();
-  onCleanup(() => scope.dispose());
+export function effect(fn: () => any | (() => void), label?: string) {
   const computeFn = () => {
     const cleanup = fn();
-    if (isFunction(cleanup)) onCleanup(cleanup);
+    isFunction(cleanup) && onCleanup(cleanup);
   };
-  const effectNode = createReactive(computeFn, true, scope);
+  const effectNode = createReactive(computeFn, true, undefined, label);
+  onCleanup(effectNode.dispose.bind(effectNode));
   effectNode.get();
 }
 
 export function createReactive<T>(
   initValue: (() => T) | T,
   effect = false,
-  scope?: ScopeNode | null
+  scope?: ScopeNode | null,
+  label?: string
 ) {
   const executionScope = scope !== undefined ? scope : currentScope;
   return execute(
-    () => new ReactiveNode(initValue, effect),
+    () => new ReactiveNode(initValue, effect, label),
     currentObserver,
     executionScope
   );
@@ -277,11 +266,7 @@ export function unTrack<T>(fn: () => T): T {
 
 export function createRoot<T = any>(fn: (dispose: () => void) => T): T {
   const scope = new ScopeNode();
-  return execute(
-    fn.bind(null, scope.dispose.bind(scope)),
-    currentObserver,
-    scope
-  );
+  return execute(() => fn(scope.dispose.bind(scope)), currentObserver, scope);
 }
 
 export function onCleanup(fn: CleanupFn) {
@@ -290,4 +275,40 @@ export function onCleanup(fn: CleanupFn) {
 
 export function getCurrentScope() {
   return currentScope;
+}
+
+export function flush() {
+  for (const effect of effectsQueue) {
+    if (!effect.disposed && effect.state !== CacheState.Clean) {
+      runTopDown(effect);
+    }
+  }
+  effectsQueue = [];
+}
+
+function runTopDown(node: ReactiveNode | ScopeNode | null) {
+  const ancestors: ReactiveNode[] = [node as ReactiveNode];
+
+  while (node && (node = node.scope)) {
+    if (
+      node instanceof ReactiveNode &&
+      node.effect &&
+      node.state !== CacheState.Clean
+    )
+      ancestors.push(node);
+  }
+  for (let i = ancestors.length - 1; i >= 0; i--) {
+    ancestors[i].get();
+  }
+}
+
+function scheduleEffect(effect: ReactiveNode<any>) {
+  effectsQueue.push(effect);
+  if (!effectsScheduled) {
+    effectsScheduled = true;
+    queueMicrotask(() => {
+      effectsScheduled = false;
+      flush();
+    });
+  }
 }
