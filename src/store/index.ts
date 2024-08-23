@@ -22,7 +22,7 @@ export type Reactive<T = any> = T extends Signal<any>
   ? Store<T>
   : Signal<T>;
 
-function isWrappable(obj: unknown): obj is object {
+function isWrappable(obj: unknown) {
   return (
     obj != null &&
     typeof obj === "object" &&
@@ -144,7 +144,7 @@ function mergeValue<T>(
 }
 
 function wrap<T extends object>(value: Store<T>): Store<T> {
-  const proxy = new Proxy(value, proxyHandler) as Store<T>;
+  const proxy = new Proxy(value, proxyHandler);
   const keys = Object.keys(value);
   const descriptors = Object.getOwnPropertyDescriptors(value);
   for (const prop of keys) {

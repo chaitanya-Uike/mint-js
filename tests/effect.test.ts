@@ -12,6 +12,7 @@ describe("effect", () => {
     flush();
     expect(effectFn).toHaveBeenCalledTimes(2);
   });
+
   it("should run effect on dependency change", () => {
     const a = signal(2);
     const b = signal(4);
@@ -26,6 +27,7 @@ describe("effect", () => {
     flush();
     expect(effectFn).toHaveBeenCalledTimes(3);
   });
+
   it("should handle nested effect", () => {
     const a = signal(0);
     const b = signal(0);
@@ -62,6 +64,7 @@ describe("effect", () => {
     expect(innerEffect).toHaveBeenCalledTimes(1);
     expect(innerDispose).toHaveBeenCalledTimes(1);
   });
+
   it("should run the returned cleanup function on rerun", () => {
     const a = signal(0);
     const cleanup = jest.fn();
@@ -76,6 +79,7 @@ describe("effect", () => {
       expect(cleanup).toHaveBeenCalledTimes(i);
     }
   });
+
   it("should run all cleanup functions on rerun", () => {
     const a = signal(0);
     const cleanup1 = jest.fn();
@@ -98,6 +102,7 @@ describe("effect", () => {
       expect(cleanup3).toHaveBeenCalledTimes(i);
     }
   });
+
   it("should handle conditional tracking", () => {
     const a = signal(0);
     const b = signal(0);
@@ -125,6 +130,7 @@ describe("effect", () => {
     flush();
     expect(effectFn).toHaveBeenCalledTimes(3);
   });
+
   it("should handle disposal of nested conditional effect", () => {
     const a = signal(true);
     const effect1 = jest.fn();
@@ -161,6 +167,7 @@ describe("effect", () => {
     expect(dispose1).toHaveBeenCalledTimes(1);
     expect(dispose2).toHaveBeenCalledTimes(1);
   });
+
   it("should handle looped effects", () => {
     let values: number[] = [],
       loop = 2;

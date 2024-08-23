@@ -45,6 +45,7 @@ class ObjectCache implements SignalCache {
     return this.cache.size;
   }
   clear() {
+    for (const [, entry] of this.cache) entry.dispose();
     this.cache.clear();
   }
   *[Symbol.iterator](): Iterator<[string, Reactive]> {
@@ -55,7 +56,7 @@ class ObjectCache implements SignalCache {
 }
 
 class ArrayCache implements SignalCache {
-  private arrayCache: (CacheEntry | undefined)[];
+  private arrayCache: CacheEntry[];
   private objectCache: ObjectCache;
   constructor() {
     this.arrayCache = [];
@@ -108,6 +109,7 @@ class ArrayCache implements SignalCache {
     );
   }
   clear(): void {
+    for (const entry of this.arrayCache) entry.dispose();
     this.arrayCache.length = 0;
     this.objectCache.clear();
   }

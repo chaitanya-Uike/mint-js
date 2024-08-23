@@ -5,6 +5,7 @@ let currentObserver: ReactiveNode | null = null;
 let newSources: Set<ReactiveNode> | null = null;
 let effectsQueue: ReactiveNode[] = [];
 let effectsScheduled = false;
+let runningEffects = false;
 
 enum CacheState {
   Clean,
@@ -13,8 +14,7 @@ enum CacheState {
 }
 
 type CacheStale = CacheState.Check | CacheState.Dirty;
-
-abstract class Disposable {
+export class Disposable {
   protected _scope: ScopeNode | null;
   protected _disposed: boolean;
 
@@ -87,7 +87,6 @@ export class ReactiveNode<T = any> extends ScopeNode {
     this._state = this.compute ? CacheState.Dirty : CacheState.Clean;
     this.value = this.compute ? (undefined as any) : initValue;
     this._effect = effect;
-    if (effect) scheduleEffect(this);
     this.label = label;
   }
 
@@ -278,12 +277,18 @@ export function getCurrentScope() {
 }
 
 export function flush() {
+  if (!runningEffects) runEffects();
+}
+
+function runEffects() {
+  runningEffects = true;
   for (const effect of effectsQueue) {
     if (!effect.disposed && effect.state !== CacheState.Clean) {
       runTopDown(effect);
     }
   }
   effectsQueue = [];
+  runningEffects = false;
 }
 
 function runTopDown(node: ReactiveNode | ScopeNode | null) {
@@ -308,7 +313,7 @@ function scheduleEffect(effect: ReactiveNode<any>) {
     effectsScheduled = true;
     queueMicrotask(() => {
       effectsScheduled = false;
-      flush();
+      runEffects();
     });
   }
 }
