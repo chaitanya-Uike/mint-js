@@ -88,41 +88,7 @@ const createStoreProxy = (initValue) => {
             if (key === STORE || key === NODE)
                 return result;
             if (isTrackable(target, key, receiver)) {
-                const storeNode = target[NODE];
-                if (!storeNode.has(key)) {
-                    storeNode.set(key, createReactive(newValue));
-                }
-                else {
-                    const existing = storeNode.get(key);
-                    if (isSignal(existing)) {
-                        if (isSignal(newValue) ||
-                            isStore(newValue) ||
-                            isWrappable(newValue)) {
-                            storeNode.set(key, createReactive(newValue));
-                        }
-                        else {
-                            existing.set(newValue);
-                        }
-                    }
-                    else {
-                        if (isSignal(newValue)) {
-                            storeNode.set(key, newValue);
-                        }
-                        else if (isStore(newValue) || isWrappable(newValue)) {
-                            const existingKeys = new Set(Object.keys(existing));
-                            Object.entries(newValue).forEach(([subKey, subValue]) => {
-                                existing[subKey] = subValue;
-                                existingKeys.delete(subKey);
-                            });
-                            existingKeys.forEach((subKey) => {
-                                delete existing[subKey];
-                            });
-                        }
-                        else {
-                            storeNode.set(key, createReactive(newValue));
-                        }
-                    }
-                }
+                updateStoreNode(target[NODE], key, newValue);
             }
             return result;
         },
@@ -169,4 +135,45 @@ function isTrackable(target, prop, receiver) {
         (typeof value !== "function" &&
             Object.prototype.hasOwnProperty.call(target, prop) &&
             !(descriptor && descriptor.get)));
+}
+function handleExistingSignal(storeNode, key, newValue) {
+    if (isSignal(newValue) || isStore(newValue) || isWrappable(newValue)) {
+        storeNode.set(key, createReactive(newValue));
+    }
+    else {
+        const existing = storeNode.get(key);
+        existing.set(newValue);
+    }
+}
+function mergeStore(existing, newValue) {
+    const existingKeys = new Set(Object.keys(existing));
+    Object.entries(newValue).forEach(([subKey, subValue]) => {
+        existing[subKey] = subValue;
+        existingKeys.delete(subKey);
+    });
+    existingKeys.forEach((subKey) => {
+        delete existing[subKey];
+    });
+}
+function updateStoreNode(storeNode, key, newValue) {
+    if (!storeNode.has(key)) {
+        storeNode.set(key, createReactive(newValue));
+    }
+    else {
+        const existing = storeNode.get(key);
+        if (isSignal(existing)) {
+            handleExistingSignal(storeNode, key, newValue);
+        }
+        else {
+            if (isSignal(newValue)) {
+                storeNode.set(key, newValue);
+            }
+            else if (isStore(newValue) || isWrappable(newValue)) {
+                mergeStore(existing, newValue);
+            }
+            else {
+                storeNode.set(key, createReactive(newValue));
+            }
+        }
+    }
 }

@@ -91,39 +91,9 @@ const createStoreProxy = <T extends object>(initValue: Store<T>) => {
     set(target, key, newValue, receiver) {
       const result = Reflect.set(target, key, newValue, receiver);
       if (key === STORE || key === NODE) return result;
+
       if (isTrackable(target, key, receiver)) {
-        const storeNode = target[NODE];
-        if (!storeNode.has(key)) {
-          storeNode.set(key, createReactive(newValue));
-        } else {
-          const existing = storeNode.get(key)!;
-          if (isSignal(existing)) {
-            if (
-              isSignal(newValue) ||
-              isStore(newValue) ||
-              isWrappable(newValue)
-            ) {
-              storeNode.set(key, createReactive(newValue));
-            } else {
-              existing.set(newValue);
-            }
-          } else {
-            if (isSignal(newValue)) {
-              storeNode.set(key, newValue);
-            } else if (isStore(newValue) || isWrappable(newValue)) {
-              const existingKeys = new Set(Object.keys(existing));
-              Object.entries(newValue).forEach(([subKey, subValue]) => {
-                (existing as any)[subKey] = subValue;
-                existingKeys.delete(subKey);
-              });
-              existingKeys.forEach((subKey) => {
-                delete (existing as any)[subKey];
-              });
-            } else {
-              storeNode.set(key, createReactive(newValue));
-            }
-          }
-        }
+        updateStoreNode(target[NODE], key, newValue);
       }
       return result;
     },
@@ -184,4 +154,51 @@ function isTrackable<T extends object>(
       Object.prototype.hasOwnProperty.call(target, prop) &&
       !(descriptor && descriptor.get))
   );
+}
+
+function handleExistingSignal(
+  storeNode: StoreNode,
+  key: PropertyKey,
+  newValue: any
+) {
+  if (isSignal(newValue) || isStore(newValue) || isWrappable(newValue)) {
+    storeNode.set(key, createReactive(newValue));
+  } else {
+    const existing = storeNode.get(key) as Signal<any>;
+    existing.set(newValue);
+  }
+}
+
+function mergeStore<T extends object = {}>(existing: Store<T>, newValue: any) {
+  const existingKeys = new Set(Object.keys(existing));
+  Object.entries(newValue).forEach(([subKey, subValue]) => {
+    existing[subKey as keyof typeof existing] = subValue as any;
+    existingKeys.delete(subKey);
+  });
+  existingKeys.forEach((subKey) => {
+    delete existing[subKey as keyof typeof existing];
+  });
+}
+
+function updateStoreNode(
+  storeNode: StoreNode,
+  key: PropertyKey,
+  newValue: any
+) {
+  if (!storeNode.has(key)) {
+    storeNode.set(key, createReactive(newValue));
+  } else {
+    const existing = storeNode.get(key)!;
+    if (isSignal(existing)) {
+      handleExistingSignal(storeNode, key, newValue);
+    } else {
+      if (isSignal(newValue)) {
+        storeNode.set(key, newValue);
+      } else if (isStore(newValue) || isWrappable(newValue)) {
+        mergeStore(existing as Store, newValue);
+      } else {
+        storeNode.set(key, createReactive(newValue));
+      }
+    }
+  }
 }
