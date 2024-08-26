@@ -4,8 +4,17 @@ import { isSignal, signal, Signal } from "../signals";
 
 const STORE = Symbol("store");
 
+type UnwrapSignal<T> = T extends Signal<infer U> ? U : T;
+
+type DeepUnwrapSignals<T> = {
+  [K in keyof T]: T[K] extends object
+    ? DeepUnwrapSignals<UnwrapSignal<T[K]>>
+    : UnwrapSignal<T[K]>;
+};
+
 type StoreMetadata = { [STORE]: true; [NODE]: StoreNode };
-export type Store<T extends object = {}> = T & StoreMetadata;
+
+export type Store<T extends object> = DeepUnwrapSignals<T> & StoreMetadata;
 
 type Reactive<T = any> = T extends object ? Store<T> : Signal<T>;
 
@@ -123,7 +132,7 @@ export function store<T extends object = {}>(initValue: T): Store<T> {
   return proxy;
 }
 
-export function isStore(value: unknown): value is Store {
+export function isStore(value: unknown): value is Store<any> {
   return (
     typeof value === "object" &&
     value !== null &&
@@ -195,7 +204,7 @@ function updateStoreNode(
       if (isSignal(newValue)) {
         storeNode.set(key, newValue);
       } else if (isStore(newValue) || isWrappable(newValue)) {
-        mergeStore(existing as Store, newValue);
+        mergeStore(existing as Store<any>, newValue);
       } else {
         storeNode.set(key, createReactive(newValue));
       }
