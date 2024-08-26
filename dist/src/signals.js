@@ -1,5 +1,5 @@
 import { ReactiveNode, createReactive } from "./core";
-import { DISPOSE, NODE } from "./constants";
+import { NODE } from "./constants";
 const SIGNAL = Symbol("signal");
 export function signal(initValue, label) {
     return createSignalWithinScope(initValue, undefined, label);
@@ -18,7 +18,6 @@ export function createSignalWithinScope(initValue, scope, label) {
     };
     signalFunction.set = node.set.bind(node);
     signalFunction[SIGNAL] = true;
-    signalFunction[DISPOSE] = node.dispose.bind(node);
     signalFunction[NODE] = node;
     return signalFunction;
 }

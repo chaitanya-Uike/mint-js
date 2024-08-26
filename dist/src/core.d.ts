@@ -3,7 +3,7 @@ declare enum CacheState {
     Check = 1,
     Dirty = 2
 }
-declare abstract class Disposable {
+export declare class Disposable {
     protected _scope: ScopeNode | null;
     protected _disposed: boolean;
     constructor();

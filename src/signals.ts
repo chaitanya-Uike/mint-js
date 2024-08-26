@@ -1,5 +1,5 @@
 import { ReactiveNode, ScopeNode, createReactive } from "./core";
-import { DISPOSE, NODE } from "./constants";
+import { NODE } from "./constants";
 
 const SIGNAL = Symbol("signal");
 
@@ -7,7 +7,6 @@ export interface Signal<T = any> {
   (): T;
   set(value: T | ((prevVal: T) => void)): void;
   [SIGNAL]: boolean;
-  [DISPOSE]: () => void;
   [NODE]: ReactiveNode<T>;
 }
 
@@ -35,7 +34,6 @@ export function createSignalWithinScope<T>(
   } as Signal<T>;
   signalFunction.set = node.set.bind(node);
   signalFunction[SIGNAL] = true;
-  signalFunction[DISPOSE] = node.dispose.bind(node);
   signalFunction[NODE] = node;
 
   return signalFunction;

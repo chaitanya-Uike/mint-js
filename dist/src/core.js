@@ -4,13 +4,14 @@ let currentObserver = null;
 let newSources = null;
 let effectsQueue = [];
 let effectsScheduled = false;
+let runningEffects = false;
 var CacheState;
 (function (CacheState) {
     CacheState[CacheState["Clean"] = 0] = "Clean";
     CacheState[CacheState["Check"] = 1] = "Check";
     CacheState[CacheState["Dirty"] = 2] = "Dirty";
 })(CacheState || (CacheState = {}));
-class Disposable {
+export class Disposable {
     _scope;
     _disposed;
     constructor() {
@@ -73,8 +74,6 @@ export class ReactiveNode extends ScopeNode {
         this._state = this.compute ? CacheState.Dirty : CacheState.Clean;
         this.value = this.compute ? undefined : initValue;
         this._effect = effect;
-        if (effect)
-            scheduleEffect(this);
         this.label = label;
     }
     get state() {
@@ -238,12 +237,18 @@ export function getCurrentScope() {
     return currentScope;
 }
 export function flush() {
+    if (!runningEffects)
+        runEffects();
+}
+function runEffects() {
+    runningEffects = true;
     for (const effect of effectsQueue) {
         if (!effect.disposed && effect.state !== CacheState.Clean) {
             runTopDown(effect);
         }
     }
     effectsQueue = [];
+    runningEffects = false;
 }
 function runTopDown(node) {
     const ancestors = [node];
@@ -263,7 +268,7 @@ function scheduleEffect(effect) {
         effectsScheduled = true;
         queueMicrotask(() => {
             effectsScheduled = false;
-            flush();
+            runEffects();
         });
     }
 }
