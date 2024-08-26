@@ -14,7 +14,7 @@ export function signal<T>(initValue: T | (() => T), label?: string): Signal<T> {
   return createSignalWithinScope(initValue, undefined, label);
 }
 
-export function isSignal(value: any): value is Signal<any> {
+export function isSignal(value: any): value is Signal {
   return typeof value === "function" && value[SIGNAL] === true;
 }
 

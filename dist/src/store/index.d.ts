@@ -7,12 +7,12 @@ type StoreMetadata = {
     [NODE]: StoreNode;
 };
 export type Store<T extends object = {}> = T & StoreMetadata;
-type Reactive = Store | Signal;
+type Reactive<T = any> = T extends object ? Store<T> : Signal<T>;
 declare class StoreNode extends ScopeNode {
     private objectCache;
     private arrayCache;
     constructor();
-    get(key: PropertyKey): Reactive | undefined;
+    get(key: PropertyKey): any;
     set(key: PropertyKey, value: Reactive): StoreNode;
     has(key: PropertyKey): boolean;
     delete(key: PropertyKey): boolean;

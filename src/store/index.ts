@@ -7,7 +7,7 @@ const STORE = Symbol("store");
 type StoreMetadata = { [STORE]: true; [NODE]: StoreNode };
 export type Store<T extends object = {}> = T & StoreMetadata;
 
-type Reactive = Store | Signal;
+type Reactive<T = any> = T extends object ? Store<T> : Signal<T>;
 
 class StoreNode extends ScopeNode {
   private objectCache: Map<PropertyKey, Reactive>;

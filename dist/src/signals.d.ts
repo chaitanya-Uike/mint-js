@@ -8,7 +8,7 @@ export interface Signal<T = any> {
     [NODE]: ReactiveNode<T>;
 }
 export declare function signal<T>(initValue: T | (() => T), label?: string): Signal<T>;
-export declare function isSignal(value: any): value is Signal<any>;
+export declare function isSignal(value: any): value is Signal;
 export declare function memo<T>(fn: () => T): () => T;
 export declare function createSignalWithinScope<T>(initValue: T | (() => T), scope?: ScopeNode, label?: string): Signal<T>;
 export {};
