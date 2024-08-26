@@ -1,24 +1,22 @@
-import { ScopeNode } from "../core";
-import { NODE } from "../constants";
-import { isSignal, signal, Signal } from "../signals";
+import { ScopeNode } from "./core";
+import { NODE } from "./constants";
+import { isSignal, signal, Signal } from "./signals";
 
 const STORE = Symbol("store");
 
 type UnwrapSignal<T> = T extends Signal<infer U> ? U : T;
 
-type DeepUnwrapSignals<T> = {
-  [K in keyof T]: T[K] extends object
-    ? DeepUnwrapSignals<UnwrapSignal<T[K]>>
-    : UnwrapSignal<T[K]>;
-};
+type DeepUnwrapSignals<T> = T extends object
+  ? { [K in keyof T]: DeepUnwrapSignals<UnwrapSignal<T[K]>> }
+  : UnwrapSignal<T>;
 
 type StoreMetadata = { [STORE]: true; [NODE]: StoreNode };
 
-export type Store<T extends object> = DeepUnwrapSignals<T> & StoreMetadata;
+export type Store<T extends object = {}> = DeepUnwrapSignals<T> & StoreMetadata;
 
 type Reactive<T = any> = T extends object ? Store<T> : Signal<T>;
 
-class StoreNode extends ScopeNode {
+export class StoreNode extends ScopeNode {
   private objectCache: Map<PropertyKey, Reactive>;
   private arrayCache: Reactive[];
 
@@ -43,7 +41,8 @@ class StoreNode extends ScopeNode {
   }
 
   has(key: PropertyKey) {
-    return this.objectCache.has(key) || key in this.arrayCache;
+    if (isArrayIndex(key)) return key in this.arrayCache;
+    return this.objectCache.has(key);
   }
 
   delete(key: PropertyKey) {
@@ -68,6 +67,15 @@ class StoreNode extends ScopeNode {
     this.objectCache.clear();
     this.arrayCache.length = 0;
     super.dispose();
+  }
+
+  updateArrayCacheLength(newLength: number) {
+    if (newLength < this.arrayCache.length) {
+      for (let i = this.arrayCache.length - 1; i >= newLength; i--) {
+        this.arrayCache[i]?.[NODE].dispose();
+      }
+      this.arrayCache.length = newLength;
+    }
   }
 }
 
@@ -98,12 +106,18 @@ const createStoreProxy = <T extends object>(initValue: Store<T>) => {
       return value;
     },
     set(target, key, newValue, receiver) {
+      const storeNode = target[NODE];
       const result = Reflect.set(target, key, newValue, receiver);
       if (key === STORE || key === NODE) return result;
 
       if (isTrackable(target, key, receiver)) {
-        updateStoreNode(target[NODE], key, newValue);
+        handleUpdate(target, key, newValue);
       }
+
+      if (Array.isArray(target) && key === "length") {
+        storeNode.updateArrayCacheLength(newValue);
+      }
+
       return result;
     },
     deleteProperty(target, key) {
@@ -165,6 +179,35 @@ function isTrackable<T extends object>(
   );
 }
 
+function handleUpdate<T extends object>(
+  target: Store<T>,
+  key: PropertyKey,
+  newValue: any
+): void {
+  const storeNode = target[NODE];
+
+  if (!storeNode.has(key)) {
+    storeNode.set(key, createReactive(newValue));
+    return;
+  }
+
+  const existing = storeNode.get(key)!;
+
+  if (isSignal(existing)) {
+    handleExistingSignal(storeNode, key, newValue);
+    return;
+  }
+
+  if (isStore(newValue) || isWrappable(newValue)) {
+    mergeStore(storeNode, key, existing, newValue);
+  } else {
+    storeNode.set(key, createReactive(newValue));
+    if (Array.isArray(existing)) {
+      storeNode.delete("length");
+    }
+  }
+}
+
 function handleExistingSignal(
   storeNode: StoreNode,
   key: PropertyKey,
@@ -178,36 +221,32 @@ function handleExistingSignal(
   }
 }
 
-function mergeStore<T extends object = {}>(existing: Store<T>, newValue: any) {
-  const existingKeys = new Set(Object.keys(existing));
-  Object.entries(newValue).forEach(([subKey, subValue]) => {
-    existing[subKey as keyof typeof existing] = subValue as any;
-    existingKeys.delete(subKey);
-  });
-  existingKeys.forEach((subKey) => {
-    delete existing[subKey as keyof typeof existing];
-  });
-}
-
-function updateStoreNode(
+function mergeStore(
   storeNode: StoreNode,
   key: PropertyKey,
+  existing: any,
   newValue: any
-) {
-  if (!storeNode.has(key)) {
-    storeNode.set(key, createReactive(newValue));
+): void {
+  if (Array.isArray(existing) && Array.isArray(newValue)) {
+    newValue.forEach((value, index) => (existing[index] = value));
+    existing.length = newValue.length;
+  } else if (isObject(existing) && isObject(newValue)) {
+    const existingKeys = new Set(Object.keys(existing));
+    Object.entries(newValue).forEach(([key, value]) => {
+      existing[key] = value;
+      existingKeys.delete(key);
+    });
+    existingKeys.forEach((key) => {
+      delete existing[key];
+    });
   } else {
-    const existing = storeNode.get(key)!;
-    if (isSignal(existing)) {
-      handleExistingSignal(storeNode, key, newValue);
-    } else {
-      if (isSignal(newValue)) {
-        storeNode.set(key, newValue);
-      } else if (isStore(newValue) || isWrappable(newValue)) {
-        mergeStore(existing as Store<any>, newValue);
-      } else {
-        storeNode.set(key, createReactive(newValue));
-      }
+    storeNode.set(key, createReactive(newValue));
+    if (Array.isArray(existing)) {
+      storeNode.delete("length");
     }
   }
+}
+
+function isObject(value: any): boolean {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
 }
