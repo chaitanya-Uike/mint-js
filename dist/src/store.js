@@ -169,11 +169,13 @@ function handleExistingSignal(storeNode, key, newValue) {
     }
 }
 function mergeStore(storeNode, key, existing, newValue) {
+    // existing store and newValue are arrays
     if (Array.isArray(existing) && Array.isArray(newValue)) {
         newValue.forEach((value, index) => (existing[index] = value));
         existing.length = newValue.length;
     }
     else if (isObject(existing) && isObject(newValue)) {
+        //both exisiting store and new value are objects
         const existingKeys = new Set(Object.keys(existing));
         Object.entries(newValue).forEach(([key, value]) => {
             existing[key] = value;
