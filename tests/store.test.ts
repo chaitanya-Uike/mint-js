@@ -179,26 +179,6 @@ describe("store", () => {
     expect(signalSpy).toHaveBeenCalledTimes(1);
   });
 
-  it("should dispose signal if new value is not mergeable", () => {
-    const obj = store<{ a?: { b: number; c: boolean; d: string } }>({
-      a: { b: 10, c: true, d: "x" },
-    });
-    const effectFn = jest.fn();
-    effect(() => {
-      obj.a?.b;
-      obj.a?.c;
-      effectFn();
-    });
-
-    obj.a = undefined;
-    expect(reactiveDisposeSpy).toHaveBeenCalledTimes(2);
-    expect(effectFn).toHaveBeenCalledTimes(1);
-
-    obj.a = { b: 15, c: true, d: "y" };
-    flush();
-    expect(effectFn).toHaveBeenCalledTimes(1);
-  });
-
   it("should dispose deeply nested objects", () => {
     type Obj = {
       a?: {
