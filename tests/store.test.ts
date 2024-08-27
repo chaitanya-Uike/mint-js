@@ -417,11 +417,14 @@ describe("store", () => {
     let disposeFn: () => void;
     createRoot((dispose) => {
       const obj = store({ a: 100 });
+      obj.a;
       disposeFn = dispose;
     });
     expect(storeDisposeSpy.mock.calls.length).toBe(0);
+    expect(reactiveDisposeSpy.mock.calls.length).toBe(0);
 
     disposeFn!();
+    expect(storeDisposeSpy.mock.calls.length).toBe(1);
     expect(storeDisposeSpy.mock.calls.length).toBe(1);
   });
 

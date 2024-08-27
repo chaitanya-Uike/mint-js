@@ -121,13 +121,6 @@ export function store(initValue) {
     value[STORE] = true;
     value[NODE] = new StoreNode();
     const proxy = createStoreProxy(value);
-    const keys = Object.keys(value);
-    const descriptors = Object.getOwnPropertyDescriptors(value);
-    for (const prop of keys) {
-        if (descriptors[prop]?.get) {
-            descriptors[prop].get = descriptors[prop].get.bind(proxy);
-        }
-    }
     return proxy;
 }
 export function isStore(value) {
@@ -143,12 +136,10 @@ function isWrappable(obj) {
 }
 function isTrackable(target, prop, receiver) {
     const value = Reflect.get(target, prop, receiver);
-    const descriptor = Object.getOwnPropertyDescriptor(target, prop);
     return (isSignal(value) ||
         isStore(value) ||
         (typeof value !== "function" &&
-            Object.prototype.hasOwnProperty.call(target, prop) &&
-            !(descriptor && descriptor.get)));
+            Object.prototype.hasOwnProperty.call(target, prop)));
 }
 function handleUpdate(target, key, newValue) {
     const storeNode = target[NODE];
@@ -166,9 +157,6 @@ function handleUpdate(target, key, newValue) {
     }
     else {
         storeNode.set(key, createReactive(newValue));
-        if (Array.isArray(existing)) {
-            storeNode.delete("length");
-        }
     }
 }
 function handleExistingSignal(storeNode, key, newValue) {
@@ -197,9 +185,6 @@ function mergeStore(storeNode, key, existing, newValue) {
     }
     else {
         storeNode.set(key, createReactive(newValue));
-        if (Array.isArray(existing)) {
-            storeNode.delete("length");
-        }
     }
 }
 function isObject(value) {
