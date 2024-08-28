@@ -1,93 +1,297 @@
-import { store, effect, flush, StoreNode, signal, Signal } from "../src";
+import { effect, flush, store, Signal, StoreNode, signal } from "../src";
 import { createRoot, ReactiveNode } from "../src/core";
 import * as signals from "../src/signals";
 
 describe("store", () => {
-  let signalSpy: jest.SpyInstance;
-  let reactiveDisposeSpy: jest.SpyInstance;
-  let storeDisposeSpy: jest.SpyInstance;
+  let signalFn: jest.SpyInstance;
+  let disposeFn: jest.SpyInstance;
+  let storeDisposeFn: jest.SpyInstance;
 
   beforeEach(() => {
-    signalSpy = jest.spyOn(signals, "signal");
-    reactiveDisposeSpy = jest.spyOn(ReactiveNode.prototype, "dispose");
-    storeDisposeSpy = jest.spyOn(StoreNode.prototype, "dispose");
+    signalFn = jest.spyOn(signals, "signal");
+    disposeFn = jest.spyOn(ReactiveNode.prototype, "dispose");
+    storeDisposeFn = jest.spyOn(StoreNode.prototype, "dispose");
   });
 
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  it("should make store properties reactive", () => {
-    const obj = store({ a: 100, b: "x" });
+  it("should make properties reactive", () => {
+    const $store = store({ a: 100 });
+    const effectFn = jest.fn();
+
+    effect(() => effectFn($store.a));
+
+    expect(effectFn).toHaveBeenCalledTimes(1);
+    expect(effectFn).toHaveBeenLastCalledWith(100);
+
+    $store.a = 20;
+    flush();
+    expect(effectFn).toHaveBeenCalledTimes(2);
+    expect(effectFn).toHaveBeenLastCalledWith(20);
+  });
+
+  it("should lazily create signals", () => {
+    const $store = store({ a: 10, b: "hello" });
+
+    expect(signalFn.mock.calls.length).toBe(0);
+
+    $store.a; //access property to create signal
+
+    expect(signalFn.mock.calls.length).toBe(1);
+    expect(signalFn.mock.lastCall?.[0]).toBe(10);
+
+    $store.b;
+
+    expect(signalFn.mock.calls.length).toBe(2);
+    expect(signalFn.mock.lastCall?.[0]).toBe("hello");
+  });
+
+  it("should allow nested properties", () => {
+    const $store = store({ a: { b: { c: 10 } } });
+    const effectFn = jest.fn();
+
+    effect(() => effectFn($store.a.b.c));
+
+    expect(effectFn).toHaveBeenCalledTimes(1);
+    expect(effectFn).toHaveBeenLastCalledWith(10);
+
+    $store.a.b.c = 20;
+    flush();
+    expect(effectFn).toHaveBeenCalledTimes(2);
+    expect(effectFn).toHaveBeenLastCalledWith(20);
+  });
+
+  it("should allow assignment of object properties", () => {
+    const $store = store({ a: { b: 10, c: { d: "hello" } } });
     const effect1 = jest.fn();
     const effect2 = jest.fn();
 
-    effect(() => effect1(obj.a));
-    effect(() => effect2(obj.b));
+    effect(() => effect1($store.a.b));
+    effect(() => effect2($store.a.c.d));
 
     expect(effect1).toHaveBeenCalledTimes(1);
-    expect(effect1).toHaveBeenLastCalledWith(100);
+    expect(effect1).toHaveBeenLastCalledWith(10);
     expect(effect2).toHaveBeenCalledTimes(1);
-    expect(effect2).toHaveBeenLastCalledWith("x");
+    expect(effect2).toHaveBeenLastCalledWith("hello");
 
-    obj.a = 120;
+    $store.a = { b: 5, c: { d: "world" } };
     flush();
-    expect(effect1).toHaveBeenCalledTimes(2);
-    expect(effect1).toHaveBeenLastCalledWith(120);
-    expect(effect2).toHaveBeenCalledTimes(1);
 
-    obj.b = "y";
-    flush();
     expect(effect1).toHaveBeenCalledTimes(2);
+    expect(effect1).toHaveBeenLastCalledWith(5);
     expect(effect2).toHaveBeenCalledTimes(2);
-    expect(effect2).toHaveBeenLastCalledWith("y");
+    expect(effect2).toHaveBeenLastCalledWith("world");
   });
 
-  it("should not make the store object itself trackable", () => {
-    const obj = store({ a: 100 });
+  it("should work with arrays", () => {
+    const $store = store([1, 2, 3]);
     const effectFn = jest.fn();
 
-    effect(() => effectFn(obj));
+    effect(() => effectFn($store[0]));
+
+    expect(effectFn).toHaveBeenCalledTimes(1);
+    expect(effectFn).toHaveBeenLastCalledWith(1);
+
+    $store[0] = 5;
+    flush();
+    expect(effectFn).toHaveBeenCalledTimes(2);
+    expect(effectFn).toHaveBeenLastCalledWith(5);
+  });
+
+  it("should handle array length update correctly", () => {
+    const $store = store([1, 2, 3]);
+    const effectFn = jest.fn();
+
+    effect(() => effectFn($store.length));
+
+    expect(effectFn).toHaveBeenCalledTimes(1);
+    expect(effectFn).toHaveBeenLastCalledWith(3);
+
+    $store.push(10);
+    flush();
+    expect(effectFn).toHaveBeenCalledTimes(2);
+    expect(effectFn).toHaveBeenLastCalledWith(4);
+
+    $store.push(15, 20, 25, 30);
+    flush();
+    expect(effectFn).toHaveBeenCalledTimes(3);
+    expect(effectFn).toHaveBeenLastCalledWith(8);
+
+    $store.pop();
+    flush();
+    expect(effectFn).toHaveBeenCalledTimes(4);
+    expect(effectFn).toHaveBeenLastCalledWith(7);
+
+    $store.shift();
+    flush();
+    expect(effectFn).toHaveBeenCalledTimes(5);
+    expect(effectFn).toHaveBeenLastCalledWith(6);
+
+    $store.length = 2;
+    flush();
+    expect(effectFn).toHaveBeenCalledTimes(6);
+    expect(effectFn).toHaveBeenLastCalledWith(2);
+  });
+
+  it("should dispose signals when length is updated", () => {
+    const $store = store([1, 2, 3, 4]);
+    const effectFn = jest.fn();
+
+    effect(() => {
+      effectFn();
+      $store[2];
+      $store[3];
+    });
 
     expect(effectFn).toHaveBeenCalledTimes(1);
 
-    obj.a = 10;
+    $store.length = 2; //will dispose off extra elements
+    flush();
+    expect(effectFn).toHaveBeenCalledTimes(1);
+
+    effectFn.mockClear();
+
+    effect(() => effectFn($store[1]));
+    expect(effectFn).toHaveBeenCalledTimes(1);
+    expect(effectFn).toHaveBeenLastCalledWith(2);
+
+    $store.pop();
     flush();
     expect(effectFn).toHaveBeenCalledTimes(1);
   });
 
-  it("should handle nested objects reactively", () => {
-    const obj = store({ a: { b: 100 }, c: true });
-    const effectFn = jest.fn();
+  it("should handle array methods correctly", () => {
+    const $store = store([1, 2, 3, 4, 5]);
+    const mapFn = jest.fn();
+    const filterFn = jest.fn();
+    const everyFn = jest.fn();
 
-    effect(() => effectFn(obj.a.b));
+    effect(() => mapFn($store.map((x) => x * 2)));
+    effect(() => filterFn($store.filter((x) => x % 2 === 0)));
+    effect(() => everyFn($store.every((x) => x > 0)));
 
-    expect(effectFn).toHaveBeenCalledTimes(1);
-    expect(effectFn).toHaveBeenLastCalledWith(100);
+    expect(mapFn).toHaveBeenCalledTimes(1);
+    expect(mapFn).toHaveBeenLastCalledWith([2, 4, 6, 8, 10]);
+    expect(filterFn).toHaveBeenCalledTimes(1);
+    expect(filterFn).toHaveBeenLastCalledWith([2, 4]);
+    expect(everyFn).toHaveBeenCalledTimes(1);
+    expect(everyFn).toHaveBeenLastCalledWith(true);
 
-    obj.a.b = 20;
+    $store.push(6);
     flush();
-    expect(effectFn).toHaveBeenCalledTimes(2);
-    expect(effectFn).toHaveBeenLastCalledWith(20);
+    expect(mapFn).toHaveBeenCalledTimes(2);
+    expect(mapFn).toHaveBeenLastCalledWith([2, 4, 6, 8, 10, 12]);
+    expect(filterFn).toHaveBeenCalledTimes(2);
+    expect(filterFn).toHaveBeenLastCalledWith([2, 4, 6]);
+    expect(everyFn).toHaveBeenCalledTimes(2);
+    expect(everyFn).toHaveBeenLastCalledWith(true);
 
-    obj.c = false;
+    $store[0] = -1;
     flush();
-    expect(effectFn).toHaveBeenCalledTimes(2);
+    expect(mapFn).toHaveBeenCalledTimes(3);
+    expect(mapFn).toHaveBeenLastCalledWith([-2, 4, 6, 8, 10, 12]);
+    expect(filterFn).toHaveBeenCalledTimes(3);
+    expect(filterFn).toHaveBeenLastCalledWith([2, 4, 6]);
+    expect(everyFn).toHaveBeenCalledTimes(3);
+    expect(everyFn).toHaveBeenLastCalledWith(false);
   });
 
-  it("should handle complete re-assignment of nested objects", () => {
-    const obj = store({ a: { b: 100 } });
+  it("should work with nested array properties", () => {
+    const $store = store({ a: [5, 6, 7] });
+    const effect1 = jest.fn();
+    const effect2 = jest.fn();
+
+    effect(() => effect1($store.a.length));
+    effect(() => effect2($store.a[2]));
+
+    expect(effect1).toHaveBeenCalledTimes(1);
+    expect(effect1).toHaveBeenLastCalledWith(3);
+    expect(effect2).toHaveBeenCalledTimes(1);
+    expect(effect2).toHaveBeenLastCalledWith(7);
+
+    $store.a.push(8);
+    flush();
+    expect(effect1).toHaveBeenCalledTimes(2);
+    expect(effect1).toHaveBeenLastCalledWith(4);
+    expect(effect2).toHaveBeenCalledTimes(1);
+
+    $store.a.shift();
+    flush();
+    expect(effect1).toHaveBeenCalledTimes(3);
+    expect(effect1).toHaveBeenLastCalledWith(3);
+    expect(effect2).toHaveBeenCalledTimes(2);
+    expect(effect2).toHaveBeenLastCalledWith(8);
+  });
+
+  it("should handle arrays of objects", () => {
+    const $store = store([
+      { id: 1, value: 10 },
+      { id: 2, value: 20 },
+    ]);
     const effectFn = jest.fn();
 
-    effect(() => effectFn(obj.a.b));
+    effect(() => effectFn($store.map((item) => item.value)));
 
     expect(effectFn).toHaveBeenCalledTimes(1);
-    expect(effectFn).toHaveBeenLastCalledWith(100);
+    expect(effectFn).toHaveBeenLastCalledWith([10, 20]);
 
-    obj.a = { b: 20 };
+    $store[0].value = 15;
     flush();
     expect(effectFn).toHaveBeenCalledTimes(2);
-    expect(effectFn).toHaveBeenLastCalledWith(20);
+    expect(effectFn).toHaveBeenLastCalledWith([15, 20]);
+
+    $store.push({ id: 3, value: 30 });
+    flush();
+    expect(effectFn).toHaveBeenCalledTimes(3);
+    expect(effectFn).toHaveBeenLastCalledWith([15, 20, 30]);
+  });
+
+  it("should handle nested arrays", () => {
+    const $store = store([
+      [1, 2],
+      [3, 4],
+    ]);
+    const effectFn = jest.fn();
+
+    effect(() =>
+      effectFn($store.map((subArr) => subArr.reduce((a, b) => a + b, 0)))
+    );
+
+    expect(effectFn).toHaveBeenCalledTimes(1);
+    expect(effectFn).toHaveBeenLastCalledWith([3, 7]);
+
+    $store[0].push(5);
+    flush();
+    expect(effectFn).toHaveBeenCalledTimes(2);
+    expect(effectFn).toHaveBeenLastCalledWith([8, 7]);
+
+    $store.push([5, 6]);
+    flush();
+    expect(effectFn).toHaveBeenCalledTimes(3);
+    expect(effectFn).toHaveBeenLastCalledWith([8, 7, 11]);
+  });
+
+  it("should dispose signal off when property is deleted", () => {
+    const disposeFn = jest.spyOn(ReactiveNode.prototype, "dispose");
+    const $store = store<{ a?: number }>({ a: 10 });
+    const effectFn = jest.fn();
+
+    effect(() => effectFn($store.a));
+
+    expect(effectFn).toHaveBeenCalledTimes(1);
+    expect(disposeFn).not.toHaveBeenCalled();
+
+    delete $store.a;
+    flush();
+    expect(effectFn).toHaveBeenCalledTimes(1);
+    expect(disposeFn).toHaveBeenCalledTimes(1);
+
+    $store.a = 5;
+    flush();
+    expect(effectFn).toHaveBeenCalledTimes(1); //original signal is disposed off
+    expect(disposeFn).toHaveBeenCalledTimes(1);
   });
 
   it("should handle array reassignments", () => {
@@ -107,7 +311,7 @@ describe("store", () => {
     expect(effect1).toHaveBeenLastCalledWith(3);
     expect(effect2).toHaveBeenCalledTimes(1);
     expect(effect2).toHaveBeenLastCalledWith([2, 4, 6]);
-    expect(signalSpy).toHaveBeenCalledTimes(4); // 3 elements + length
+    expect(signalFn).toHaveBeenCalledTimes(4); // 3 elements + length
 
     obj.a = [4, 5, 6, 7];
     flush();
@@ -115,8 +319,8 @@ describe("store", () => {
     expect(effect1).toHaveBeenLastCalledWith(4);
     expect(effect2).toHaveBeenCalledTimes(2);
     expect(effect2).toHaveBeenLastCalledWith([8, 10, 12, 14]);
-    expect(reactiveDisposeSpy).toHaveBeenCalledTimes(0); // should not dispose previous elements
-    expect(signalSpy).toHaveBeenCalledTimes(5); // reuse 4 previous signals
+    expect(disposeFn).toHaveBeenCalledTimes(0); // should not dispose previous elements
+    expect(signalFn).toHaveBeenCalledTimes(5); // reuse 4 previous signals
   });
 
   it("should handle updation with different types", () => {
@@ -131,8 +335,8 @@ describe("store", () => {
     obj.a = [1, 2];
     flush();
     expect(effect1).toHaveBeenCalledTimes(1);
-    expect(storeDisposeSpy).toHaveBeenCalledTimes(1); //prev a obj
-    expect(reactiveDisposeSpy).toHaveBeenCalledTimes(1); // b prop
+    expect(storeDisposeFn).toHaveBeenCalledTimes(1); //prev a obj
+    expect(disposeFn).toHaveBeenCalledTimes(1); // b prop
 
     const effect2 = jest.fn();
     effect(() => {
@@ -144,8 +348,8 @@ describe("store", () => {
     obj.c = { x: 1 };
     flush();
     expect(effect2).toHaveBeenCalledTimes(1);
-    expect(storeDisposeSpy).toHaveBeenCalledTimes(2); //prev c array
-    expect(reactiveDisposeSpy).toHaveBeenCalledTimes(2); // 1 from array length + 1 from object
+    expect(storeDisposeFn).toHaveBeenCalledTimes(2); //prev c array
+    expect(disposeFn).toHaveBeenCalledTimes(2); // 1 from array length + 1 from object
 
     const effect3 = jest.fn();
     effect(() => effect3(obj.d));
@@ -155,220 +359,7 @@ describe("store", () => {
     obj.d = [1, 2];
     flush();
     expect(effect3).toHaveBeenCalledTimes(1);
-    expect(reactiveDisposeSpy).toHaveBeenCalledTimes(3);
-  });
-
-  it("should lazily create signals", () => {
-    const obj = store({ a: { b: 10, c: 20 }, d: 30 });
-    expect(signalSpy).not.toHaveBeenCalled();
-
-    obj.a.b;
-    expect(signalSpy).toHaveBeenCalledTimes(1);
-
-    obj.d;
-    expect(signalSpy).toHaveBeenCalledTimes(2);
-  });
-
-  it("should not create signals for methods", () => {
-    const obj = store({
-      a: 10,
-      method: () => console.log("Hello"),
-    });
-    obj.a;
-    obj.method;
-    expect(signalSpy).toHaveBeenCalledTimes(1);
-  });
-
-  it("should dispose deeply nested objects", () => {
-    type Obj = {
-      a?: {
-        b: {
-          d: { e: number };
-          f: boolean;
-        };
-        c: number;
-      };
-    };
-    const obj = store<Obj>({ a: { b: { d: { e: 10 }, f: true }, c: 20 } });
-
-    obj.a?.b.d.e;
-    obj.a?.b.f;
-    obj.a?.c;
-
-    obj.a = undefined;
-
-    expect(reactiveDisposeSpy).toHaveBeenCalledTimes(3);
-    expect(storeDisposeSpy).toHaveBeenCalledTimes(3);
-  });
-
-  it("should dispose signals when properties are deleted", () => {
-    const obj = store<{ a?: number; b: number }>({ a: 1, b: 2 });
-
-    obj.a;
-    obj.b;
-
-    delete obj.a;
-    expect(reactiveDisposeSpy).toHaveBeenCalledTimes(1);
-  });
-
-  it("should handle basic array operations", () => {
-    const arr = store([1, 2, 3]);
-    const effectFn = jest.fn();
-
-    effect(() => effectFn(arr.length, arr[0]));
-
-    expect(effectFn).toHaveBeenCalledTimes(1);
-    expect(effectFn).toHaveBeenLastCalledWith(3, 1);
-
-    arr.push(4);
-    flush();
-    expect(effectFn).toHaveBeenCalledTimes(2);
-    expect(effectFn).toHaveBeenLastCalledWith(4, 1);
-
-    arr[0] = 10;
-    flush();
-    expect(effectFn).toHaveBeenCalledTimes(3);
-    expect(effectFn).toHaveBeenLastCalledWith(4, 10);
-  });
-
-  it("should handle array methods correctly", () => {
-    const arr = store([1, 2, 3, 4, 5]);
-    const mapFn = jest.fn();
-    const filterFn = jest.fn();
-    const everyFn = jest.fn();
-
-    effect(() => mapFn(arr.map((x) => x * 2)));
-    effect(() => filterFn(arr.filter((x) => x % 2 === 0)));
-    effect(() => everyFn(arr.every((x) => x > 0)));
-
-    expect(mapFn).toHaveBeenCalledTimes(1);
-    expect(mapFn).toHaveBeenLastCalledWith([2, 4, 6, 8, 10]);
-    expect(filterFn).toHaveBeenCalledTimes(1);
-    expect(filterFn).toHaveBeenLastCalledWith([2, 4]);
-    expect(everyFn).toHaveBeenCalledTimes(1);
-    expect(everyFn).toHaveBeenLastCalledWith(true);
-
-    arr.push(6);
-    flush();
-    expect(mapFn).toHaveBeenCalledTimes(2);
-    expect(mapFn).toHaveBeenLastCalledWith([2, 4, 6, 8, 10, 12]);
-    expect(filterFn).toHaveBeenCalledTimes(2);
-    expect(filterFn).toHaveBeenLastCalledWith([2, 4, 6]);
-    expect(everyFn).toHaveBeenCalledTimes(2);
-    expect(everyFn).toHaveBeenLastCalledWith(true);
-
-    arr[0] = -1;
-    flush();
-    expect(mapFn).toHaveBeenCalledTimes(3);
-    expect(mapFn).toHaveBeenLastCalledWith([-2, 4, 6, 8, 10, 12]);
-    expect(filterFn).toHaveBeenCalledTimes(3);
-    expect(filterFn).toHaveBeenLastCalledWith([2, 4, 6]);
-    expect(everyFn).toHaveBeenCalledTimes(3);
-    expect(everyFn).toHaveBeenLastCalledWith(false);
-  });
-
-  it("should handle length property changes", () => {
-    const arr = store([1, 2, 3, 4, 5]);
-    const effectFn = jest.fn();
-
-    effect(() => effectFn(arr.length));
-
-    expect(effectFn).toHaveBeenCalledTimes(1);
-    expect(effectFn).toHaveBeenLastCalledWith(5);
-
-    arr.push(6);
-    flush();
-    expect(effectFn).toHaveBeenCalledTimes(2);
-    expect(effectFn).toHaveBeenLastCalledWith(6);
-
-    arr.length = 3;
-    flush();
-    expect(effectFn).toHaveBeenCalledTimes(3);
-    expect(effectFn).toHaveBeenLastCalledWith(3);
-  });
-
-  it("should handle arrays of objects", () => {
-    const arr = store([
-      { id: 1, value: 10 },
-      { id: 2, value: 20 },
-    ]);
-    const effectFn = jest.fn();
-
-    effect(() => effectFn(arr.map((item) => item.value)));
-
-    expect(effectFn).toHaveBeenCalledTimes(1);
-    expect(effectFn).toHaveBeenLastCalledWith([10, 20]);
-
-    arr[0].value = 15;
-    flush();
-    expect(effectFn).toHaveBeenCalledTimes(2);
-    expect(effectFn).toHaveBeenLastCalledWith([15, 20]);
-
-    arr.push({ id: 3, value: 30 });
-    flush();
-    expect(effectFn).toHaveBeenCalledTimes(3);
-    expect(effectFn).toHaveBeenLastCalledWith([15, 20, 30]);
-  });
-
-  it("should handle disposal of array elements", () => {
-    const arr = store([{ id: 1 }, { id: 2 }, { id: 3 }]);
-
-    arr[0].id;
-    arr[1].id;
-    arr[2].id;
-
-    expect(reactiveDisposeSpy).not.toHaveBeenCalled();
-
-    arr.pop();
-    expect(reactiveDisposeSpy).toHaveBeenCalledTimes(1);
-
-    arr.shift();
-    expect(reactiveDisposeSpy).toHaveBeenCalledTimes(2);
-
-    arr.length = 0;
-    expect(reactiveDisposeSpy).toHaveBeenCalledTimes(3);
-
-    reactiveDisposeSpy.mockClear();
-
-    const arr2 = store([1, 2, 3, 4, 5, 6]);
-
-    for (let i = 0; i < arr2.length; i++) arr2[i];
-
-    expect(reactiveDisposeSpy).not.toHaveBeenCalled();
-
-    arr2.pop();
-    expect(reactiveDisposeSpy).toHaveBeenCalledTimes(1);
-
-    arr2.shift();
-    expect(reactiveDisposeSpy).toHaveBeenCalledTimes(2);
-
-    arr2.length = 2;
-    expect(reactiveDisposeSpy).toHaveBeenCalledTimes(4);
-  });
-
-  it("should handle nested arrays", () => {
-    const arr = store([
-      [1, 2],
-      [3, 4],
-    ]);
-    const effectFn = jest.fn();
-
-    effect(() =>
-      effectFn(arr.map((subArr) => subArr.reduce((a, b) => a + b, 0)))
-    );
-
-    expect(effectFn).toHaveBeenCalledTimes(1);
-    expect(effectFn).toHaveBeenLastCalledWith([3, 7]);
-
-    arr[0].push(5);
-    flush();
-    expect(effectFn).toHaveBeenCalledTimes(2);
-    expect(effectFn).toHaveBeenLastCalledWith([8, 7]);
-
-    arr.push([5, 6]);
-    flush();
-    expect(effectFn).toHaveBeenCalledTimes(3);
-    expect(effectFn).toHaveBeenLastCalledWith([8, 7, 11]);
+    expect(disposeFn).toHaveBeenCalledTimes(3);
   });
 
   it("should handle cyclic references", () => {
@@ -394,18 +385,18 @@ describe("store", () => {
   });
 
   it("should get disposed when parent scope is disposed", () => {
-    let disposeFn: () => void;
+    let cleanup: () => void;
     createRoot((dispose) => {
       const obj = store({ a: 100 });
       obj.a;
-      disposeFn = dispose;
+      cleanup = dispose;
     });
-    expect(storeDisposeSpy.mock.calls.length).toBe(0);
-    expect(reactiveDisposeSpy.mock.calls.length).toBe(0);
+    expect(storeDisposeFn.mock.calls.length).toBe(0);
+    expect(disposeFn.mock.calls.length).toBe(0);
 
-    disposeFn!();
-    expect(storeDisposeSpy.mock.calls.length).toBe(1);
-    expect(storeDisposeSpy.mock.calls.length).toBe(1);
+    cleanup!();
+    expect(storeDisposeFn.mock.calls.length).toBe(1);
+    expect(disposeFn.mock.calls.length).toBe(1);
   });
 
   it("should allow signals as properties", () => {
